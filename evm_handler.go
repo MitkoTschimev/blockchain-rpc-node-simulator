@@ -3,11 +3,15 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strconv"
 	"sync/atomic"
 )
 
 func handleEVMRequest(message []byte, conn WSConn) ([]byte, error) {
+	// Log incoming message
+	log.Printf("Incoming EVM message: %s", string(message))
+
 	var request JSONRPCRequest
 	if err := json.Unmarshal(message, &request); err != nil {
 		return createErrorResponse(-32700, "Parse error", nil, nil)
@@ -45,6 +49,7 @@ func handleEVMRequest(message []byte, conn WSConn) ([]byte, error) {
 		if err != nil {
 			return createErrorResponse(-32603, err.Error(), nil, request.ID)
 		}
+		log.Printf("New EVM subscription created: ID=%d, Type=%s", subID, subscriptionType)
 		result = fmt.Sprintf("%d", subID) // Return subscription ID as string for EVM
 
 	case "eth_unsubscribe":

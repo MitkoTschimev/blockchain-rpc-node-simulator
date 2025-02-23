@@ -2,11 +2,15 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"strconv"
 	"sync/atomic"
 )
 
 func handleSolanaRequest(message []byte, conn WSConn) ([]byte, error) {
+	// Log incoming message
+	log.Printf("Incoming Solana message: %s", string(message))
+
 	var request JSONRPCRequest
 	if err := json.Unmarshal(message, &request); err != nil {
 		return createErrorResponse(-32700, "Parse error", nil, nil)
@@ -33,6 +37,7 @@ func handleSolanaRequest(message []byte, conn WSConn) ([]byte, error) {
 		if err != nil {
 			return createErrorResponse(-32603, err.Error(), nil, request.ID)
 		}
+		log.Printf("New Solana subscription created: ID=%d, Type=slotNotification", subID)
 		result = subID
 
 	case "slotUnsubscribe":

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 	"sync/atomic"
 
@@ -47,11 +48,13 @@ func (sm *SubscriptionManager) Unsubscribe(id uint64) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	if _, exists := sm.subscriptions[id]; !exists {
+	sub, exists := sm.subscriptions[id]
+	if !exists {
 		return fmt.Errorf("subscription %d not found", id)
 	}
 
 	delete(sm.subscriptions, id)
+	log.Printf("Subscription removed: ID=%d, Type=%s, Method=%s", id, sub.Type, sub.Method)
 	return nil
 }
 
@@ -64,6 +67,7 @@ func (sm *SubscriptionManager) CleanupConnection(conn WSConn) int {
 	for id, sub := range sm.subscriptions {
 		if sub.Conn == conn {
 			delete(sm.subscriptions, id)
+			log.Printf("Subscription cleaned up on connection close: ID=%d, Type=%s, Method=%s", id, sub.Type, sub.Method)
 			count++
 		}
 	}
@@ -75,7 +79,8 @@ func (sm *SubscriptionManager) DropAllConnections() int {
 	defer sm.mu.Unlock()
 
 	count := len(sm.subscriptions)
-	for _, sub := range sm.subscriptions {
+	for id, sub := range sm.subscriptions {
+		log.Printf("Subscription dropped: ID=%d, Type=%s, Method=%s", id, sub.Type, sub.Method)
 		sub.Conn.Close()
 	}
 	sm.subscriptions = make(map[uint64]*Subscription)
