@@ -65,12 +65,12 @@ func TestEVMHandler(t *testing.T) {
 			},
 		},
 		{
-			name: "eth_subscribe",
+			name: "eth_subscribe with string ID",
 			request: JSONRPCRequest{
 				JsonRPC: "2.0",
 				Method:  "eth_subscribe",
 				Params:  []interface{}{"newHeads"},
-				ID:      1,
+				ID:      "test-id-123",
 			},
 			validate: func(t *testing.T, response []byte) {
 				var resp JSONRPCResponse
@@ -86,6 +86,10 @@ func TestEVMHandler(t *testing.T) {
 				}
 				if subID == "" {
 					t.Error("Subscription ID should not be empty")
+				}
+				// Verify response ID matches request ID
+				if resp.ID != "test-id-123" {
+					t.Errorf("Expected response ID to be 'test-id-123', got %v", resp.ID)
 				}
 			},
 		},
@@ -192,12 +196,12 @@ func TestSolanaHandler(t *testing.T) {
 			},
 		},
 		{
-			name: "slotSubscribe",
+			name: "slotSubscribe with string ID",
 			request: JSONRPCRequest{
 				JsonRPC: "2.0",
 				Method:  "slotSubscribe",
 				Params:  []interface{}{},
-				ID:      1,
+				ID:      "solana-test-123",
 			},
 			validate: func(t *testing.T, response []byte) {
 				var resp JSONRPCResponse
@@ -213,6 +217,10 @@ func TestSolanaHandler(t *testing.T) {
 				}
 				if subID <= 0 {
 					t.Error("Subscription ID should be positive")
+				}
+				// Verify response ID matches request ID
+				if resp.ID != "solana-test-123" {
+					t.Errorf("Expected response ID to be 'solana-test-123', got %v", resp.ID)
 				}
 			},
 		},
