@@ -10,7 +10,7 @@ import (
 )
 
 type Subscription struct {
-	ID     string
+	ID     uint64
 	Type   string
 	Conn   WSConn
 	Method string
@@ -18,21 +18,21 @@ type Subscription struct {
 
 type SubscriptionManager struct {
 	mu            sync.RWMutex
-	subscriptions map[string]*Subscription
+	subscriptions map[uint64]*Subscription
 	nextSubID     uint64
 }
 
 func NewSubscriptionManager() *SubscriptionManager {
 	return &SubscriptionManager{
-		subscriptions: make(map[string]*Subscription),
+		subscriptions: make(map[uint64]*Subscription),
 	}
 }
 
-func (sm *SubscriptionManager) Subscribe(subType string, conn WSConn, method string) (string, error) {
+func (sm *SubscriptionManager) Subscribe(subType string, conn WSConn, method string) (uint64, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	id := fmt.Sprintf("%d", atomic.AddUint64(&sm.nextSubID, 1))
+	id := atomic.AddUint64(&sm.nextSubID, 1)
 	sm.subscriptions[id] = &Subscription{
 		ID:     id,
 		Type:   subType,
@@ -43,12 +43,12 @@ func (sm *SubscriptionManager) Subscribe(subType string, conn WSConn, method str
 	return id, nil
 }
 
-func (sm *SubscriptionManager) Unsubscribe(id string) error {
+func (sm *SubscriptionManager) Unsubscribe(id uint64) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
 	if _, exists := sm.subscriptions[id]; !exists {
-		return fmt.Errorf("subscription %s not found", id)
+		return fmt.Errorf("subscription %d not found", id)
 	}
 
 	delete(sm.subscriptions, id)
@@ -78,8 +78,15 @@ func (sm *SubscriptionManager) DropAllConnections() int {
 	for _, sub := range sm.subscriptions {
 		sub.Conn.Close()
 	}
-	sm.subscriptions = make(map[string]*Subscription)
+	sm.subscriptions = make(map[uint64]*Subscription)
 	return count
+}
+
+// calculateSolanaEpochRoot calculates the root slot for the current epoch
+// For simplicity, we'll use a fixed epoch size of 32 slots
+func calculateSolanaEpochRoot(slot uint64) uint64 {
+	epochSize := uint64(32)
+	return (slot / epochSize) * epochSize
 }
 
 func (sm *SubscriptionManager) BroadcastNewBlock(blockNum uint64) {
@@ -98,7 +105,7 @@ func (sm *SubscriptionManager) BroadcastNewBlock(blockNum uint64) {
 				JsonRPC: "2.0",
 				Method:  "eth_subscription",
 				Params: map[string]interface{}{
-					"subscription": sub.ID,
+					"subscription": fmt.Sprintf("%d", sub.ID),
 					"result": map[string]interface{}{
 						"number": fmt.Sprintf("0x%x", blockNum),
 					},
@@ -108,12 +115,17 @@ func (sm *SubscriptionManager) BroadcastNewBlock(blockNum uint64) {
 			if sub.Method != "slotNotification" {
 				continue
 			}
+			root := calculateSolanaEpochRoot(blockNum)
 			notification = JSONRPCNotification{
 				JsonRPC: "2.0",
 				Method:  "slotNotification",
 				Params: map[string]interface{}{
 					"subscription": sub.ID,
-					"result":       blockNum,
+					"result": map[string]interface{}{
+						"parent": blockNum - 1,
+						"root":   root,
+						"slot":   blockNum,
+					},
 				},
 			}
 		}

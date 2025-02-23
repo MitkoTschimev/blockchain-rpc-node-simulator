@@ -8,6 +8,19 @@ import (
 func TestEVMHandler(t *testing.T) {
 	conn := NewMockWSConn()
 
+	// First create a subscription that we can unsubscribe from later
+	subRequest := JSONRPCRequest{
+		JsonRPC: "2.0",
+		Method:  "eth_subscribe",
+		Params:  []interface{}{"newHeads"},
+		ID:      1,
+	}
+	subRequestData, _ := json.Marshal(subRequest)
+	subResponse, _ := handleEVMRequest(subRequestData, conn)
+	var subResp JSONRPCResponse
+	json.Unmarshal(subResponse, &subResp)
+	subscriptionID := subResp.Result.(string)
+
 	tests := []struct {
 		name     string
 		request  JSONRPCRequest
@@ -65,8 +78,33 @@ func TestEVMHandler(t *testing.T) {
 					t.Errorf("Failed to parse response: %v", err)
 					return
 				}
-				if resp.Result == "" {
+				// Verify subscription ID is a string
+				subID, ok := resp.Result.(string)
+				if !ok {
+					t.Error("Expected subscription ID to be a string")
+					return
+				}
+				if subID == "" {
 					t.Error("Subscription ID should not be empty")
+				}
+			},
+		},
+		{
+			name: "eth_unsubscribe with string ID",
+			request: JSONRPCRequest{
+				JsonRPC: "2.0",
+				Method:  "eth_unsubscribe",
+				Params:  []interface{}{subscriptionID},
+				ID:      1,
+			},
+			validate: func(t *testing.T, response []byte) {
+				var resp JSONRPCResponse
+				if err := json.Unmarshal(response, &resp); err != nil {
+					t.Errorf("Failed to parse response: %v", err)
+					return
+				}
+				if resp.Result != true {
+					t.Error("Expected unsubscribe to return true")
 				}
 			},
 		},
@@ -91,6 +129,19 @@ func TestEVMHandler(t *testing.T) {
 
 func TestSolanaHandler(t *testing.T) {
 	conn := NewMockWSConn()
+
+	// First create a subscription that we can unsubscribe from later
+	subRequest := JSONRPCRequest{
+		JsonRPC: "2.0",
+		Method:  "slotSubscribe",
+		Params:  []interface{}{},
+		ID:      1,
+	}
+	subRequestData, _ := json.Marshal(subRequest)
+	subResponse, _ := handleSolanaRequest(subRequestData, conn)
+	var subResp JSONRPCResponse
+	json.Unmarshal(subResponse, &subResp)
+	subscriptionID := uint64(subResp.Result.(float64))
 
 	tests := []struct {
 		name     string
@@ -154,8 +205,33 @@ func TestSolanaHandler(t *testing.T) {
 					t.Errorf("Failed to parse response: %v", err)
 					return
 				}
-				if resp.Result == "" {
-					t.Error("Subscription ID should not be empty")
+				// Verify subscription ID is a number
+				subID, ok := resp.Result.(float64)
+				if !ok {
+					t.Error("Expected subscription ID to be a number")
+					return
+				}
+				if subID <= 0 {
+					t.Error("Subscription ID should be positive")
+				}
+			},
+		},
+		{
+			name: "slotUnsubscribe with numeric ID",
+			request: JSONRPCRequest{
+				JsonRPC: "2.0",
+				Method:  "slotUnsubscribe",
+				Params:  []interface{}{float64(subscriptionID)},
+				ID:      1,
+			},
+			validate: func(t *testing.T, response []byte) {
+				var resp JSONRPCResponse
+				if err := json.Unmarshal(response, &resp); err != nil {
+					t.Errorf("Failed to parse response: %v", err)
+					return
+				}
+				if resp.Result != true {
+					t.Error("Expected unsubscribe to return true")
 				}
 			},
 		},

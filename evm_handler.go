@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"sync/atomic"
 )
 
@@ -44,15 +45,25 @@ func handleEVMRequest(message []byte, conn WSConn) ([]byte, error) {
 		if err != nil {
 			return createErrorResponse(-32603, err.Error(), nil, request.ID)
 		}
-		result = subID
+		result = fmt.Sprintf("%d", subID) // Return subscription ID as string for EVM
 
 	case "eth_unsubscribe":
 		if len(request.Params) < 1 {
 			return createErrorResponse(-32602, "Invalid params", nil, request.ID)
 		}
-		subscriptionID, ok := request.Params[0].(string)
-		if !ok {
-			return createErrorResponse(-32602, "Invalid subscription ID", nil, request.ID)
+
+		// Handle both string and number subscription IDs
+		var subscriptionID uint64
+		switch v := request.Params[0].(type) {
+		case string:
+			subscriptionID, err = strconv.ParseUint(v, 10, 64)
+			if err != nil {
+				return createErrorResponse(-32602, "Invalid subscription ID", nil, request.ID)
+			}
+		case float64:
+			subscriptionID = uint64(v)
+		default:
+			return createErrorResponse(-32602, "Invalid subscription ID type", nil, request.ID)
 		}
 
 		err := subManager.Unsubscribe(subscriptionID)

@@ -8,57 +8,111 @@ import (
 func TestSubscriptionManager(t *testing.T) {
 	sm := NewSubscriptionManager()
 
-	// Test subscription creation
-	conn := NewMockWSConn()
-	subID, err := sm.Subscribe("evm", conn, "newHeads")
+	// Test EVM subscription
+	evmConn := NewMockWSConn()
+	evmSubID, err := sm.Subscribe("evm", evmConn, "newHeads")
 	if err != nil {
-		t.Errorf("Failed to create subscription: %v", err)
+		t.Errorf("Failed to create EVM subscription: %v", err)
 	}
-	if subID == "" {
-		t.Error("Subscription ID should not be empty")
+	if evmSubID == 0 {
+		t.Error("Subscription ID should not be zero")
 	}
 
-	// Test duplicate subscription
-	subID2, err := sm.Subscribe("evm", conn, "newHeads")
+	// Test Solana subscription
+	solanaConn := NewMockWSConn()
+	solanaSubID, err := sm.Subscribe("solana", solanaConn, "slotNotification")
 	if err != nil {
 		t.Error("Should allow multiple subscriptions from same connection")
 	}
-	if subID == subID2 {
-		t.Error("Subscription IDs should be unique")
+	if solanaSubID == 0 {
+		t.Error("Subscription ID should not be zero")
 	}
 
 	// Test broadcast
 	sm.BroadcastNewBlock(1000)
-	messages := conn.GetMessages()
-	if len(messages) != 2 {
-		t.Errorf("Expected 2 messages, got %d", len(messages))
+
+	// Verify EVM notification format
+	evmMessages := evmConn.GetMessages()
+	if len(evmMessages) != 1 {
+		t.Errorf("Expected 1 EVM message, got %d", len(evmMessages))
+	} else {
+		var notification JSONRPCNotification
+		if err := json.Unmarshal(evmMessages[0], &notification); err != nil {
+			t.Errorf("Invalid EVM notification format: %v", err)
+		} else {
+			params, ok := notification.Params.(map[string]interface{})
+			if !ok {
+				t.Error("Expected params to be an object")
+			} else {
+				// Verify subscription ID is string
+				subID, ok := params["subscription"].(string)
+				if !ok {
+					t.Error("EVM subscription ID should be a string")
+				}
+				if subID == "" {
+					t.Error("EVM subscription ID should not be empty")
+				}
+			}
+		}
 	}
 
-	// Verify message format
-	var notification JSONRPCNotification
-	if err := json.Unmarshal(messages[0], &notification); err != nil {
-		t.Errorf("Invalid notification format: %v", err)
-	}
-	if notification.Method != "eth_subscription" {
-		t.Errorf("Expected eth_subscription method, got %s", notification.Method)
+	// Verify Solana notification format
+	solanaMessages := solanaConn.GetMessages()
+	if len(solanaMessages) != 1 {
+		t.Errorf("Expected 1 Solana message, got %d", len(solanaMessages))
+	} else {
+		var notification JSONRPCNotification
+		if err := json.Unmarshal(solanaMessages[0], &notification); err != nil {
+			t.Errorf("Invalid Solana notification format: %v", err)
+		} else {
+			params, ok := notification.Params.(map[string]interface{})
+			if !ok {
+				t.Error("Expected params to be an object")
+			} else {
+				// Verify subscription ID is number
+				subID, ok := params["subscription"].(float64)
+				if !ok {
+					t.Error("Solana subscription ID should be a number")
+				}
+				if subID <= 0 {
+					t.Error("Solana subscription ID should be positive")
+				}
+
+				// Verify slot notification format
+				result, ok := params["result"].(map[string]interface{})
+				if !ok {
+					t.Error("Expected result to be an object")
+				} else {
+					if _, ok := result["parent"].(float64); !ok {
+						t.Error("Expected parent to be a number")
+					}
+					if _, ok := result["root"].(float64); !ok {
+						t.Error("Expected root to be a number")
+					}
+					if _, ok := result["slot"].(float64); !ok {
+						t.Error("Expected slot to be a number")
+					}
+				}
+			}
+		}
 	}
 
 	// Test unsubscribe
-	if err := sm.Unsubscribe(subID); err != nil {
+	if err := sm.Unsubscribe(evmSubID); err != nil {
 		t.Errorf("Failed to unsubscribe: %v", err)
 	}
 
 	// Test unsubscribe of non-existent subscription
-	if err := sm.Unsubscribe("non-existent"); err == nil {
+	if err := sm.Unsubscribe(999); err == nil {
 		t.Error("Should return error for non-existent subscription")
 	}
 
 	// Test drop all connections
 	count := sm.DropAllConnections()
-	if count != 1 { // We still have one subscription left
+	if count != 1 { // Only Solana subscription should remain
 		t.Errorf("Expected 1 connection to be dropped, got %d", count)
 	}
-	if !conn.IsClosed() {
+	if !solanaConn.IsClosed() {
 		t.Error("Connection should be closed after DropAllConnections")
 	}
 }
