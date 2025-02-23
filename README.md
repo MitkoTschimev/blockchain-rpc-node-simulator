@@ -233,6 +233,65 @@ To add new features or modify behavior:
 3. Control endpoints: Modify `control_handler.go`
 4. Subscription logic: Modify `subscription.go`
 
+## Testing
+
+The project includes a comprehensive test suite covering all major components. Here's how to run the tests:
+
+### Running Tests
+
+1. Run all tests:
+```bash
+go test ./...
+```
+
+2. Run tests with verbose output:
+```bash
+go test -v ./...
+```
+
+3. Run a specific test:
+```bash
+# Example: Run only EVM handler tests
+go test -v -run TestEVMHandler
+
+# Example: Run only Solana handler tests
+go test -v -run TestSolanaHandler
+```
+
+### Test Coverage
+
+1. Check test coverage percentage:
+```bash
+go test -cover ./...
+```
+
+2. Generate detailed coverage report:
+```bash
+# Generate coverage profile
+go test -coverprofile=coverage.out ./...
+
+# View coverage in browser
+go tool cover -html=coverage.out
+```
+
+### Test Components
+
+The test suite includes:
+- Connection management tests (`connection_controller_test.go`)
+- Subscription handling tests (`subscription_test.go`)
+- EVM RPC method tests (`rpc_handler_test.go`)
+- Solana RPC method tests (`rpc_handler_test.go`)
+- Concurrent operation tests
+- Error handling tests
+
+### Running Tests During Development
+
+When developing new features, it's recommended to:
+1. Write tests first (TDD approach)
+2. Run tests frequently with `-v` flag for detailed output
+3. Check coverage for new code
+4. Run the full test suite before committing changes
+
 ## License
 
 MIT License 

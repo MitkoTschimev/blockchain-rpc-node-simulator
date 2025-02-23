@@ -58,21 +58,35 @@ func main() {
 	}
 }
 
+// wsConnWrapper wraps a *websocket.Conn to implement WSConn
+type wsConnWrapper struct {
+	*websocket.Conn
+}
+
+func (w *wsConnWrapper) WriteMessage(messageType int, data []byte) error {
+	return w.Conn.WriteMessage(messageType, data)
+}
+
+func (w *wsConnWrapper) Close() error {
+	return w.Conn.Close()
+}
+
 func handleEVMWebSocket(w http.ResponseWriter, r *http.Request) {
 	if IsBlocked() {
 		http.Error(w, "Server is temporarily unavailable", http.StatusServiceUnavailable)
 		return
 	}
 
-	conn, err := upgrader.Upgrade(w, r, nil)
+	wsConn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Upgrade error:", err)
 		return
 	}
+	conn := &wsConnWrapper{wsConn}
 	defer conn.Close()
 
 	for {
-		messageType, message, err := conn.ReadMessage()
+		messageType, message, err := wsConn.ReadMessage()
 		if err != nil {
 			log.Println("Read error:", err)
 			break
@@ -97,15 +111,16 @@ func handleSolanaWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := upgrader.Upgrade(w, r, nil)
+	wsConn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Upgrade error:", err)
 		return
 	}
+	conn := &wsConnWrapper{wsConn}
 	defer conn.Close()
 
 	for {
-		messageType, message, err := conn.ReadMessage()
+		messageType, message, err := wsConn.ReadMessage()
 		if err != nil {
 			log.Println("Read error:", err)
 			break

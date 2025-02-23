@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync/atomic"
-
-	"github.com/gorilla/websocket"
 )
 
-func handleEVMRequest(message []byte, conn *websocket.Conn) ([]byte, error) {
+func handleEVMRequest(message []byte, conn WSConn) ([]byte, error) {
 	var request JSONRPCRequest
 	if err := json.Unmarshal(message, &request); err != nil {
 		return createErrorResponse(-32700, "Parse error", nil, nil)

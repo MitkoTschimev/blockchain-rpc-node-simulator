@@ -12,7 +12,7 @@ import (
 type Subscription struct {
 	ID     string
 	Type   string
-	Conn   *websocket.Conn
+	Conn   WSConn
 	Method string
 }
 
@@ -28,7 +28,7 @@ func NewSubscriptionManager() *SubscriptionManager {
 	}
 }
 
-func (sm *SubscriptionManager) Subscribe(subType string, conn *websocket.Conn, method string) (string, error) {
+func (sm *SubscriptionManager) Subscribe(subType string, conn WSConn, method string) (string, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
