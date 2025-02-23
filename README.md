@@ -207,6 +207,141 @@ curl -X POST http://localhost:8545/control/block/pause
 curl -X POST http://localhost:8545/control/block/resume
 ```
 
+## Quick Test Commands
+
+### Installing wscat
+```bash
+npm install -g wscat
+```
+
+### EVM Testing Commands
+
+1. Connect to EVM endpoint:
+```bash
+wscat -c ws://localhost:8545/ws/evm
+```
+
+2. Get chain ID:
+```bash
+{"jsonrpc": "2.0", "method": "eth_chainId", "params": [], "id": 1}
+```
+
+3. Get current block number:
+```bash
+{"jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 1}
+```
+
+4. Subscribe to new blocks:
+```bash
+{"jsonrpc": "2.0", "method": "eth_subscribe", "params": ["newHeads"], "id": 1}
+```
+
+5. Unsubscribe (replace SUBSCRIPTION_ID with the ID received from subscribe):
+```bash
+{"jsonrpc": "2.0", "method": "eth_unsubscribe", "params": ["SUBSCRIPTION_ID"], "id": 1}
+```
+
+6. Get balance (mock):
+```bash
+{"jsonrpc": "2.0", "method": "eth_getBalance", "params": ["0x742d35Cc6634C0532925a3b844Bc454e4438f44e"], "id": 1}
+```
+
+### Solana Testing Commands
+
+1. Connect to Solana endpoint:
+```bash
+wscat -c ws://localhost:8545/ws/solana
+```
+
+2. Get current slot:
+```bash
+{"jsonrpc": "2.0", "method": "getSlot", "params": [], "id": 1}
+```
+
+3. Get version info:
+```bash
+{"jsonrpc": "2.0", "method": "getVersion", "params": [], "id": 1}
+```
+
+4. Subscribe to slot updates:
+```bash
+{"jsonrpc": "2.0", "method": "slotSubscribe", "params": [], "id": 1}
+```
+
+5. Unsubscribe (replace SUBSCRIPTION_ID with the ID received from subscribe):
+```bash
+{"jsonrpc": "2.0", "method": "slotUnsubscribe", "params": ["SUBSCRIPTION_ID"], "id": 1}
+```
+
+### Testing Control Endpoints
+
+1. Drop all connections:
+```bash
+curl -X POST http://localhost:8545/control/connections/drop
+```
+
+2. Drop connections and block for 30 seconds:
+```bash
+curl -X POST http://localhost:8545/control/connections/drop \
+  -H "Content-Type: application/json" \
+  -d '{"block_duration_seconds": 30}'
+```
+
+3. Set specific block number:
+```bash
+curl -X POST http://localhost:8545/control/block/set \
+  -H "Content-Type: application/json" \
+  -d '{"block_number": 1000}'
+```
+
+4. Pause block increment:
+```bash
+curl -X POST http://localhost:8545/control/block/pause
+```
+
+5. Resume block increment:
+```bash
+curl -X POST http://localhost:8545/control/block/resume
+```
+
+### Common Testing Scenarios
+
+1. Test subscription and block updates:
+```bash
+# Terminal 1 - Connect and subscribe to EVM updates
+wscat -c ws://localhost:8545/ws/evm
+> {"jsonrpc": "2.0", "method": "eth_subscribe", "params": ["newHeads"], "id": 1}
+
+# Terminal 2 - Connect and subscribe to Solana updates
+wscat -c ws://localhost:8545/ws/solana
+> {"jsonrpc": "2.0", "method": "slotSubscribe", "params": [], "id": 1}
+
+# Terminal 3 - Control block progression
+curl -X POST http://localhost:8545/control/block/set -H "Content-Type: application/json" -d '{"block_number": 1000}'
+```
+
+2. Test connection dropping:
+```bash
+# Terminal 1 - Subscribe to updates
+wscat -c ws://localhost:8545/ws/evm
+> {"jsonrpc": "2.0", "method": "eth_subscribe", "params": ["newHeads"], "id": 1}
+
+# Terminal 2 - Drop connections after 5 seconds
+sleep 5 && curl -X POST http://localhost:8545/control/connections/drop
+```
+
+3. Test block pausing:
+```bash
+# Terminal 1 - Subscribe to updates
+wscat -c ws://localhost:8545/ws/evm
+> {"jsonrpc": "2.0", "method": "eth_subscribe", "params": ["newHeads"], "id": 1}
+
+# Terminal 2 - Control block progression
+curl -X POST http://localhost:8545/control/block/pause
+sleep 10
+curl -X POST http://localhost:8545/control/block/resume
+```
+
 ## Default Behavior
 
 - Block/slot number starts at 1
