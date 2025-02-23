@@ -55,6 +55,21 @@ func (sm *SubscriptionManager) Unsubscribe(id string) error {
 	return nil
 }
 
+// CleanupConnection removes all subscriptions associated with a specific connection
+func (sm *SubscriptionManager) CleanupConnection(conn WSConn) int {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	count := 0
+	for id, sub := range sm.subscriptions {
+		if sub.Conn == conn {
+			delete(sm.subscriptions, id)
+			count++
+		}
+	}
+	return count
+}
+
 func (sm *SubscriptionManager) DropAllConnections() int {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()

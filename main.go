@@ -83,12 +83,18 @@ func handleEVMWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	conn := &wsConnWrapper{wsConn}
-	defer conn.Close()
+	defer func() {
+		count := subManager.CleanupConnection(conn)
+		log.Printf("Cleaned up %d subscriptions for disconnected EVM client", count)
+		conn.Close()
+	}()
 
 	for {
 		messageType, message, err := wsConn.ReadMessage()
 		if err != nil {
-			log.Println("Read error:", err)
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("EVM client disconnected unexpectedly: %v", err)
+			}
 			break
 		}
 
@@ -117,12 +123,18 @@ func handleSolanaWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	conn := &wsConnWrapper{wsConn}
-	defer conn.Close()
+	defer func() {
+		count := subManager.CleanupConnection(conn)
+		log.Printf("Cleaned up %d subscriptions for disconnected Solana client", count)
+		conn.Close()
+	}()
 
 	for {
 		messageType, message, err := wsConn.ReadMessage()
 		if err != nil {
-			log.Println("Read error:", err)
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("Solana client disconnected unexpectedly: %v", err)
+			}
 			break
 		}
 
