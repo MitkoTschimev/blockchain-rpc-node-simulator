@@ -32,6 +32,8 @@ func handleSolanaRequest(message []byte, conn WSConn) ([]byte, error) {
 			"solana-core": "1.14.10",
 			"feature-set": 1234567,
 		}
+	case "getHealth":
+		result = "ok"
 	case "slotSubscribe":
 		subID, err := subManager.Subscribe("solana", conn, "slotNotification")
 		if err != nil {

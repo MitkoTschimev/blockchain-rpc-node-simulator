@@ -32,6 +32,8 @@ func handleEVMRequest(message []byte, conn WSConn) ([]byte, error) {
 		result = fmt.Sprintf("0x%x", atomic.LoadUint64(&currentBlock))
 	case "eth_getBalance":
 		result = "0x1234567890"
+	case "getHealth":
+		result = "ok"
 	case "eth_subscribe":
 		if len(request.Params) < 1 {
 			return createErrorResponse(-32602, "Invalid params", nil, request.ID)

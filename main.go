@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"log"
 	"net/http"
 	"sync"
@@ -40,6 +41,10 @@ func main() {
 	// WebSocket endpoints
 	mux.HandleFunc("/ws/evm", handleEVMWebSocket)
 	mux.HandleFunc("/ws/solana", handleSolanaWebSocket)
+
+	// HTTP endpoints
+	mux.HandleFunc("/evm", handleEVMHTTP)
+	mux.HandleFunc("/solana", handleSolanaHTTP)
 
 	// Control endpoints
 	handleControlEndpoints(mux)
@@ -159,4 +164,64 @@ func handleSolanaWebSocket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+}
+
+func handleEVMHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var message []byte
+	var err error
+	message, err = io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	// Log incoming message
+	log.Printf("Incoming EVM HTTP message: %s", string(message))
+
+	// Create a mock connection for the request
+	mockConn := NewMockWSConn()
+	response, err := handleEVMRequest(message, mockConn)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(response)
+}
+
+func handleSolanaHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var message []byte
+	var err error
+	message, err = io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	// Log incoming message
+	log.Printf("Incoming Solana HTTP message: %s", string(message))
+
+	// Create a mock connection for the request
+	mockConn := NewMockWSConn()
+	response, err := handleSolanaRequest(message, mockConn)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(response)
 }
