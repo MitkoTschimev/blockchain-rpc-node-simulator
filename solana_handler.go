@@ -8,12 +8,14 @@ import (
 )
 
 func handleSolanaRequest(message []byte, conn WSConn) ([]byte, error) {
-	// Log incoming message
-	log.Printf("Incoming Solana message: %s", string(message))
-
 	var request JSONRPCRequest
 	if err := json.Unmarshal(message, &request); err != nil {
 		return createErrorResponse(-32700, "Parse error", nil, nil)
+	}
+
+	// Only log non-health check messages
+	if request.Method != "getHealth" {
+		log.Printf("Incoming Solana message: %s", string(message))
 	}
 
 	// Validate JSON-RPC version

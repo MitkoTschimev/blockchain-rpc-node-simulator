@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -181,8 +182,11 @@ func handleEVMHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	// Log incoming message
-	log.Printf("Incoming EVM HTTP message: %s", string(message))
+	// Only log non-health check messages
+	var request JSONRPCRequest
+	if err := json.Unmarshal(message, &request); err == nil && request.Method != "getHealth" {
+		log.Printf("Incoming EVM HTTP message: %s", string(message))
+	}
 
 	// Create a mock connection for the request
 	mockConn := NewMockWSConn()
@@ -211,8 +215,11 @@ func handleSolanaHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	// Log incoming message
-	log.Printf("Incoming Solana HTTP message: %s", string(message))
+	// Only log non-health check messages
+	var request JSONRPCRequest
+	if err := json.Unmarshal(message, &request); err == nil && request.Method != "getHealth" {
+		log.Printf("Incoming Solana HTTP message: %s", string(message))
+	}
 
 	// Create a mock connection for the request
 	mockConn := NewMockWSConn()
