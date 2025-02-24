@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -61,13 +62,18 @@ func main() {
 // wsConnWrapper wraps a *websocket.Conn to implement WSConn
 type wsConnWrapper struct {
 	*websocket.Conn
+	writeMu sync.Mutex // Protects writes to the connection
 }
 
 func (w *wsConnWrapper) WriteMessage(messageType int, data []byte) error {
+	w.writeMu.Lock()
+	defer w.writeMu.Unlock()
 	return w.Conn.WriteMessage(messageType, data)
 }
 
 func (w *wsConnWrapper) Close() error {
+	w.writeMu.Lock()
+	defer w.writeMu.Unlock()
 	return w.Conn.Close()
 }
 
@@ -82,7 +88,9 @@ func handleEVMWebSocket(w http.ResponseWriter, r *http.Request) {
 		log.Println("Upgrade error:", err)
 		return
 	}
-	conn := &wsConnWrapper{wsConn}
+	conn := &wsConnWrapper{
+		Conn: wsConn,
+	}
 	defer func() {
 		count := subManager.CleanupConnection(conn)
 		log.Printf("Cleaned up %d subscriptions for disconnected EVM client", count)
@@ -122,7 +130,9 @@ func handleSolanaWebSocket(w http.ResponseWriter, r *http.Request) {
 		log.Println("Upgrade error:", err)
 		return
 	}
-	conn := &wsConnWrapper{wsConn}
+	conn := &wsConnWrapper{
+		Conn: wsConn,
+	}
 	defer func() {
 		count := subManager.CleanupConnection(conn)
 		log.Printf("Cleaned up %d subscriptions for disconnected Solana client", count)
