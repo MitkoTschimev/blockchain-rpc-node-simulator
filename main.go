@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -51,7 +52,13 @@ func main() {
 	// Control endpoints
 	handleControlEndpoints(mux)
 
-	port := ":8545"
+	// Get port from environment variable or use default
+	port := os.Getenv("RPC_PORT")
+	if port == "" {
+		port = "8545"
+	}
+	port = ":" + port
+
 	log.Printf("Starting RPC simulator on port %s", port)
 	log.Printf("EVM endpoint: ws://localhost%s/ws/evm", port)
 	log.Printf("Solana endpoint: ws://localhost%s/ws/solana", port)

@@ -38,6 +38,14 @@ air
 
 The server will start on port 8545 by default.
 
+## Configuration
+
+### Environment Variables
+
+1. `RPC_PORT` - Port number for the RPC server
+   - Default: `8545`
+   - Example: `RPC_PORT=9545 go run .`
+
 ## Endpoints
 
 ### WebSocket Endpoints
