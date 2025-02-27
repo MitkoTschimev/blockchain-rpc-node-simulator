@@ -11,6 +11,8 @@ import (
 func handleEVMRequest(message []byte, conn WSConn) ([]byte, error) {
 	var request JSONRPCRequest
 	if err := json.Unmarshal(message, &request); err != nil {
+		log.Printf("Error unmarshalling message: %s", err)
+		log.Printf("Message: %s", string(message))
 		return createErrorResponse(-32700, "Parse error", nil, nil)
 	}
 

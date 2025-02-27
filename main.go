@@ -21,13 +21,14 @@ var (
 	currentBlock         uint64 = 1 // Start from block 1
 	blockIncrementPaused uint32 = 0 // 0 = running, 1 = paused
 	subManager                  = NewSubscriptionManager()
+	blockInterval               = 2 * time.Second
 )
 
 func main() {
 	// Start block number incrementer
 	go func() {
 		for {
-			time.Sleep(5 * time.Second)
+			time.Sleep(blockInterval)
 			if atomic.LoadUint32(&blockIncrementPaused) == 0 {
 				newBlock := atomic.AddUint64(&currentBlock, 1)
 				log.Printf("Block number increased to: %d", newBlock)
