@@ -15,6 +15,26 @@ type ControlResponse struct {
 	Message string `json:"message"`
 }
 
+type BlockRequest struct {
+	Chain       string `json:"chain"`
+	BlockNumber uint64 `json:"block_number"`
+}
+
+type TimeoutRequest struct {
+	Chain           string  `json:"chain"`
+	DurationSeconds float64 `json:"duration_seconds"`
+}
+
+type InterruptRequest struct {
+	Chain           string  `json:"chain"`
+	DurationSeconds float64 `json:"duration_seconds"`
+}
+
+type ReorgRequest struct {
+	Chain  string `json:"chain"`
+	Blocks int    `json:"blocks"`
+}
+
 func handleControlEndpoints(mux *http.ServeMux) {
 	mux.HandleFunc("/control/connections/drop", handleDropConnections)
 	mux.HandleFunc("/control/block/set", handleSetBlock)
@@ -23,6 +43,10 @@ func handleControlEndpoints(mux *http.ServeMux) {
 	mux.HandleFunc("/control/block/pause_updates", handlePauseUpdates)
 	mux.HandleFunc("/control/block/resume_updates", handleResumeUpdates)
 	mux.HandleFunc("/control/block/interval", handleSetBlockInterval)
+	mux.HandleFunc("/control/block/interrupt", handleInterruptBlocks)
+	mux.HandleFunc("/control/timeout/set", handleSetTimeout)
+	mux.HandleFunc("/control/timeout/clear", handleClearTimeout)
+	mux.HandleFunc("/control/chain/reorg", handleChainReorg)
 }
 
 func jsonResponse(w http.ResponseWriter, status int, response interface{}) {
@@ -408,4 +432,139 @@ func handleSetBlockInterval(w http.ResponseWriter, r *http.Request) {
 		Success: true,
 		Message: fmt.Sprintf("Block interval updated to %v for chain %s", interval, req.Chain),
 	})
+}
+
+func handleSetTimeout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req TimeoutRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	chain := getChain(req.Chain)
+	if chain == nil {
+		http.Error(w, "Invalid chain", http.StatusBadRequest)
+		return
+	}
+
+	chain.SetTimeout(time.Duration(req.DurationSeconds * float64(time.Second)))
+	log.Printf("Set response timeout for %s: %v", req.Chain, req.DurationSeconds)
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func handleClearTimeout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Chain string `json:"chain"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	chain := getChain(req.Chain)
+	if chain == nil {
+		http.Error(w, "Invalid chain", http.StatusBadRequest)
+		return
+	}
+
+	chain.ClearTimeout()
+	log.Printf("Cleared response timeout for %s", req.Chain)
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func handleInterruptBlocks(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonResponse(w, http.StatusMethodNotAllowed, ControlResponse{
+			Success: false,
+			Message: "Method not allowed",
+		})
+		return
+	}
+
+	var req InterruptRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonResponse(w, http.StatusBadRequest, ControlResponse{
+			Success: false,
+			Message: "Invalid request body",
+		})
+		return
+	}
+
+	if req.DurationSeconds <= 0 {
+		jsonResponse(w, http.StatusBadRequest, ControlResponse{
+			Success: false,
+			Message: "Duration must be greater than 0",
+		})
+		return
+	}
+
+	chain := getChain(req.Chain)
+	if chain == nil {
+		jsonResponse(w, http.StatusBadRequest, ControlResponse{
+			Success: false,
+			Message: "Invalid chain",
+		})
+		return
+	}
+
+	// Interrupt block emissions for the specified duration
+	chain.InterruptBlocks()
+
+	// Schedule the resume after the duration
+	go func() {
+		time.Sleep(time.Duration(req.DurationSeconds * float64(time.Second)))
+		chain.ResumeBlocks()
+	}()
+
+	jsonResponse(w, http.StatusOK, ControlResponse{
+		Success: true,
+		Message: fmt.Sprintf("Block emissions interrupted for %s for %.1f seconds", req.Chain, req.DurationSeconds),
+	})
+}
+
+func handleChainReorg(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req ReorgRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	chain := getChain(req.Chain)
+	if chain == nil {
+		http.Error(w, "Invalid chain", http.StatusBadRequest)
+		return
+	}
+
+	chain.TriggerReorg(req.Blocks)
+	log.Printf("Triggered chain reorganization for %s: %d blocks", req.Chain, req.Blocks)
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// Helper function to get chain instance
+func getChain(name string) Chain {
+	if name == "solana" {
+		return solanaNode
+	}
+	if chain, ok := supportedChains[name]; ok {
+		return chain
+	}
+	return nil
 }

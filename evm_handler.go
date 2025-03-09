@@ -6,50 +6,6 @@ import (
 	"log"
 	"strconv"
 	"sync/atomic"
-	"time"
-)
-
-type EVMChain struct {
-	Name           string
-	ChainID        string // hex string
-	BlockNumber    uint64
-	BlockIncrement uint32 // 0 = running, 1 = paused
-	BlockInterval  time.Duration
-}
-
-var (
-	supportedChains = map[string]*EVMChain{
-		"ethereum": {
-			Name:          "ethereum",
-			ChainID:       "0x1", // 1 Mainnet
-			BlockInterval: 12 * time.Second,
-		},
-		"optimism": {
-			Name:          "optimism",
-			ChainID:       "0xa", // 10
-			BlockInterval: 2 * time.Second,
-		},
-		"arbitrum": {
-			Name:          "arbitrum",
-			ChainID:       "0xa4b1", // 42161
-			BlockInterval: 250 * time.Millisecond,
-		},
-		"avalanche": {
-			Name:          "avalanche",
-			ChainID:       "0xa86a", // 43114
-			BlockInterval: 2 * time.Second,
-		},
-		"base": {
-			Name:          "base",
-			ChainID:       "0x2105", // 8453
-			BlockInterval: 2 * time.Second,
-		},
-		"binance": {
-			Name:          "binance",
-			ChainID:       "0x38", // 56
-			BlockInterval: 3 * time.Second,
-		},
-	}
 )
 
 func init() {

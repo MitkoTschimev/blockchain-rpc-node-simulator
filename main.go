@@ -38,6 +38,11 @@ func main() {
 		go func(name string, c *EVMChain) {
 			for {
 				time.Sleep(c.BlockInterval)
+				// Check if blocks are interrupted
+				if atomic.LoadUint32(&c.BlockInterrupt) == 1 {
+					continue
+				}
+				// Check if blocks are paused
 				if atomic.LoadUint32(&c.BlockIncrement) == 0 {
 					newBlock := atomic.AddUint64(&c.BlockNumber, 1)
 					log.Printf("Block number increased for %s: %d (interval: %v)", name, newBlock, c.BlockInterval)
@@ -47,11 +52,32 @@ func main() {
 		}(chainName, chain)
 	}
 
+	// Start Solana slot incrementer
+	go func() {
+		for {
+			time.Sleep(solanaNode.SlotInterval)
+			// Check if slots are interrupted
+			if atomic.LoadUint32(&solanaNode.BlockInterrupt) == 1 {
+				continue
+			}
+			// Check if slots are paused
+			if atomic.LoadUint32(&solanaNode.SlotIncrement) == 0 {
+				newSlot := atomic.AddUint64(&solanaNode.SlotNumber, 1)
+				log.Printf("Slot number increased for Solana: %d (interval: %v)", newSlot, solanaNode.SlotInterval)
+				subManager.BroadcastNewBlock("solana", newSlot)
+			}
+		}
+	}()
+
 	// Create a new ServeMux for better route handling
 	mux := http.NewServeMux()
 
+	// Serve static files for the web UI
+	fs := http.FileServer(http.Dir("static"))
+	mux.Handle("/", fs)
+
 	// WebSocket endpoints
-	mux.HandleFunc("/ws/evm/", handleEVMWebSocketWithChain) // Note the trailing slash
+	mux.HandleFunc("/ws/evm/", handleEVMWebSocketWithChain)
 	mux.HandleFunc("/ws/solana", handleSolanaWebSocket)
 
 	// HTTP endpoints
@@ -69,6 +95,7 @@ func main() {
 	port = ":" + port
 
 	log.Printf("Starting RPC simulator on port %s", port)
+	log.Printf("Web UI: http://localhost%s", port)
 	log.Printf("EVM endpoints:")
 	for chainId, chainName := range chainIdToName {
 		log.Printf("  %s: ws://localhost%s/ws/evm/%s", chainName, port, chainId)
@@ -79,6 +106,11 @@ func main() {
 	log.Printf("  POST /control/block/set - Set block number")
 	log.Printf("  POST /control/block/pause - Pause block increment")
 	log.Printf("  POST /control/block/resume - Resume block increment")
+	log.Printf("  POST /control/block/interval - Set block interval")
+	log.Printf("  POST /control/block/interrupt - Interrupt block emissions")
+	log.Printf("  POST /control/timeout/set - Set response timeout")
+	log.Printf("  POST /control/timeout/clear - Clear response timeout")
+	log.Printf("  POST /control/chain/reorg - Trigger chain reorganization")
 
 	if err := http.ListenAndServe(port, mux); err != nil {
 		log.Fatal("ListenAndServe:", err)

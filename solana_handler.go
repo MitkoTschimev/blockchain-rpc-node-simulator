@@ -8,21 +8,6 @@ import (
 	"time"
 )
 
-type SolanaNode struct {
-	SlotNumber    uint64
-	SlotIncrement uint32 // 0 = running, 1 = paused
-	SlotInterval  time.Duration
-	Version       string
-	FeatureSet    uint64
-}
-
-var solanaNode = &SolanaNode{
-	SlotNumber:   1,
-	SlotInterval: 400 * time.Millisecond, // Solana's target block time
-	Version:      "1.14.10",
-	FeatureSet:   1234567,
-}
-
 func init() {
 	// Start Solana slot incrementer
 	go func() {

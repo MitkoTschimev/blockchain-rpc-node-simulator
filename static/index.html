@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPC Simulator Dashboard</title>
+    <style>
+        :root {
+            --primary: #3498db;
+            --success: #2ecc71;
+            --warning: #f1c40f;
+            --danger: #e74c3c;
+            --dark: #2c3e50;
+            --light: #ecf0f1;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--dark);
+            background: var(--light);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            background: var(--dark);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            margin: 0;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            margin-bottom: 1rem;
+            color: var(--dark);
+            font-size: 1.2rem;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            background: var(--primary);
+            color: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-success { background: var(--success); }
+        .btn-warning { background: var(--warning); }
+        .btn-danger { background: var(--danger); }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .log-container {
+            background: #1e1e1e;
+            color: #fff;
+            padding: 1rem;
+            border-radius: 4px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            margin-top: 1rem;
+        }
+
+        .log-entry {
+            margin: 0.2rem 0;
+            font-size: 0.9rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .badge-success { background: var(--success); color: white; }
+        .badge-warning { background: var(--warning); color: var(--dark); }
+        .badge-danger { background: var(--danger); color: white; }
+
+        #subscriptions {
+            list-style: none;
+        }
+
+        #subscriptions li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            border-bottom: 1px solid #ddd;
+        }
+
+        #subscriptions li:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>RPC Simulator Dashboard</h1>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="grid">
+            <div class="card">
+                <h2>Chain Connection</h2>
+                <div class="form-group">
+                    <label for="chainSelect">Select Chain</label>
+                    <select id="chainSelect" class="form-control">
+                        <option value="1">Ethereum (1)</option>
+                        <option value="10">Optimism (10)</option>
+                        <option value="42161">Arbitrum (42161)</option>
+                        <option value="43114">Avalanche (43114)</option>
+                        <option value="8453">Base (8453)</option>
+                        <option value="56">Binance (56)</option>
+                        <option value="solana">Solana</option>
+                    </select>
+                </div>
+                <button id="connectBtn" class="btn">Connect</button>
+                <button id="disconnectBtn" class="btn btn-danger" style="display: none;">Disconnect</button>
+                <div id="connectionStatus"></div>
+            </div>
+
+            <div class="card">
+                <h2>Block Control</h2>
+                <div class="form-group">
+                    <label for="blockNumber">Set Block Number</label>
+                    <input type="number" id="blockNumber" class="form-control" placeholder="Enter block number">
+                </div>
+                <button id="setBlockBtn" class="btn">Set Block</button>
+                <button id="pauseBlockBtn" class="btn btn-warning">Pause</button>
+                <button id="resumeBlockBtn" class="btn btn-success">Resume</button>
+            </div>
+
+            <div class="card">
+                <h2>Block Interval</h2>
+                <div class="form-group">
+                    <label for="intervalSeconds">Interval (seconds)</label>
+                    <input type="number" id="intervalSeconds" class="form-control" step="0.1" placeholder="Enter interval in seconds">
+                </div>
+                <button id="setIntervalBtn" class="btn">Set Interval</button>
+            </div>
+
+            <div class="card">
+                <h2>Chain Disruptions</h2>
+                <div class="form-group">
+                    <label for="timeoutDuration">Response Timeout (seconds)</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="number" id="timeoutDuration" class="form-control" step="0.1" placeholder="Duration">
+                        <button id="setTimeoutBtn" class="btn">Set</button>
+                        <button id="clearTimeoutBtn" class="btn btn-warning">Clear</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="interruptDuration">Block Interruption (seconds)</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="number" id="interruptDuration" class="form-control" step="0.1" placeholder="Duration">
+                        <button id="interruptBlocksBtn" class="btn btn-warning">Interrupt</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="reorgBlocks">Chain Reorganization</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="number" id="reorgBlocks" class="form-control" placeholder="Number of blocks">
+                        <button id="triggerReorgBtn" class="btn btn-danger">Reorg</button>
+                    </div>
+                    <small style="color: #666; margin-top: 0.25rem; display: block;">
+                        Number of blocks to revert and regenerate
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid" style="margin-top: 1.5rem;">
+            <div class="card">
+                <h2>Active Subscriptions</h2>
+                <ul id="subscriptions"></ul>
+            </div>
+
+            <div class="card">
+                <h2>Event Log</h2>
+                <div class="log-container" id="eventLog"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html> 

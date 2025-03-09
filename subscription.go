@@ -87,13 +87,6 @@ func (sm *SubscriptionManager) DropAllConnections() int {
 	return count
 }
 
-// calculateSolanaEpochRoot calculates the root slot for the current epoch
-// For simplicity, we'll use a fixed epoch size of 32 slots
-func calculateSolanaEpochRoot(slot uint64) uint64 {
-	epochSize := uint64(32)
-	return (slot / epochSize) * epochSize
-}
-
 func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint64) {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
@@ -113,7 +106,6 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 					Subscription: fmt.Sprintf("%d", sub.ID), // EVM uses string IDs
 					Result: map[string]interface{}{
 						"number": fmt.Sprintf("0x%x", blockNumber),
-						"chain":  chain,
 					},
 				},
 			}
