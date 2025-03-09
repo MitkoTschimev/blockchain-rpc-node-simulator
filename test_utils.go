@@ -8,6 +8,8 @@ import (
 type WSConn interface {
 	WriteMessage(messageType int, data []byte) error
 	Close() error
+	GetMessages() [][]byte
+	ClearMessages()
 }
 
 // MockWSConn implements WSConn for testing
@@ -41,4 +43,8 @@ func (m *MockWSConn) GetMessages() [][]byte {
 
 func (m *MockWSConn) IsClosed() bool {
 	return m.closed
+}
+
+func (m *MockWSConn) ClearMessages() {
+	m.messages = nil
 }

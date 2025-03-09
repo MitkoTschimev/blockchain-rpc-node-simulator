@@ -5,7 +5,37 @@ import (
 	"log"
 	"strconv"
 	"sync/atomic"
+	"time"
 )
+
+type SolanaNode struct {
+	SlotNumber    uint64
+	SlotIncrement uint32 // 0 = running, 1 = paused
+	SlotInterval  time.Duration
+	Version       string
+	FeatureSet    uint64
+}
+
+var solanaNode = &SolanaNode{
+	SlotNumber:   1,
+	SlotInterval: 400 * time.Millisecond, // Solana's target block time
+	Version:      "1.14.10",
+	FeatureSet:   1234567,
+}
+
+func init() {
+	// Start Solana slot incrementer
+	go func() {
+		for {
+			time.Sleep(solanaNode.SlotInterval)
+			if atomic.LoadUint32(&solanaNode.SlotIncrement) == 0 {
+				newSlot := atomic.AddUint64(&solanaNode.SlotNumber, 1)
+				log.Printf("Slot number increased for Solana: %d (interval: %v)", newSlot, solanaNode.SlotInterval)
+				subManager.BroadcastNewBlock("solana", newSlot)
+			}
+		}
+	}()
+}
 
 func handleSolanaRequest(message []byte, conn WSConn) ([]byte, error) {
 	var request JSONRPCRequest
@@ -28,11 +58,11 @@ func handleSolanaRequest(message []byte, conn WSConn) ([]byte, error) {
 
 	switch request.Method {
 	case "getSlot":
-		result = atomic.LoadUint64(&currentBlock)
+		result = atomic.LoadUint64(&solanaNode.SlotNumber)
 	case "getVersion":
 		result = map[string]interface{}{
-			"solana-core": "1.14.10",
-			"feature-set": 1234567,
+			"solana-core": solanaNode.Version,
+			"feature-set": solanaNode.FeatureSet,
 		}
 	case "getHealth":
 		result = "ok"
@@ -41,8 +71,8 @@ func handleSolanaRequest(message []byte, conn WSConn) ([]byte, error) {
 		if err != nil {
 			return createErrorResponse(-32603, err.Error(), nil, request.ID)
 		}
-		log.Printf("New Solana subscription created: ID=%d, Type=slotNotification", subID)
-		result = subID
+		log.Printf("New Solana subscription created: ID=%d", subID)
+		result = subID // Solana uses numeric IDs
 
 	case "slotUnsubscribe":
 		if len(request.Params) < 1 {

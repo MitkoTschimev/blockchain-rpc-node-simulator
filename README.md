@@ -281,6 +281,38 @@ Response:
 }
 ```
 
+**Pause block updates (keep connections alive):**
+```bash
+# Pause indefinitely
+curl -X POST http://localhost:8545/control/block/pause_updates
+
+# Pause for 30 seconds
+curl -X POST http://localhost:8545/control/block/pause_updates \
+  -H "Content-Type: application/json" \
+  -d '{"duration_seconds": 30}'
+```
+
+Response:
+```json
+{
+    "success": true,
+    "message": "Block updates paused"
+}
+```
+
+**Resume block updates:**
+```bash
+curl -X POST http://localhost:8545/control/block/resume_updates
+```
+
+Response:
+```json
+{
+    "success": true,
+    "message": "Block updates resumed"
+}
+```
+
 **Pause block increment:**
 ```bash
 curl -X POST http://localhost:8545/control/block/pause

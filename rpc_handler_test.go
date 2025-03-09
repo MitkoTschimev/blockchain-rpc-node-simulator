@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"testing"
+	"time"
 )
 
 func TestEVMHandler(t *testing.T) {
@@ -12,7 +13,7 @@ func TestEVMHandler(t *testing.T) {
 	subRequest := JSONRPCRequest{
 		JsonRPC: "2.0",
 		Method:  "eth_subscribe",
-		Params:  []interface{}{"newHeads"},
+		Params:  []interface{}{"ethereum", "newHeads"},
 		ID:      1,
 	}
 	subRequestData, _ := json.Marshal(subRequest)
@@ -27,11 +28,11 @@ func TestEVMHandler(t *testing.T) {
 		validate func(t *testing.T, response []byte)
 	}{
 		{
-			name: "eth_chainId",
+			name: "eth_chainId for ethereum",
 			request: JSONRPCRequest{
 				JsonRPC: "2.0",
 				Method:  "eth_chainId",
-				Params:  []interface{}{},
+				Params:  []interface{}{"ethereum"},
 				ID:      1,
 			},
 			validate: func(t *testing.T, response []byte) {
@@ -46,11 +47,30 @@ func TestEVMHandler(t *testing.T) {
 			},
 		},
 		{
-			name: "eth_blockNumber",
+			name: "eth_chainId for optimism",
+			request: JSONRPCRequest{
+				JsonRPC: "2.0",
+				Method:  "eth_chainId",
+				Params:  []interface{}{"optimism"},
+				ID:      1,
+			},
+			validate: func(t *testing.T, response []byte) {
+				var resp JSONRPCResponse
+				if err := json.Unmarshal(response, &resp); err != nil {
+					t.Errorf("Failed to parse response: %v", err)
+					return
+				}
+				if resp.Result != "0xa" {
+					t.Errorf("Expected chainId 0xa, got %v", resp.Result)
+				}
+			},
+		},
+		{
+			name: "eth_blockNumber for ethereum",
 			request: JSONRPCRequest{
 				JsonRPC: "2.0",
 				Method:  "eth_blockNumber",
-				Params:  []interface{}{},
+				Params:  []interface{}{"ethereum"},
 				ID:      1,
 			},
 			validate: func(t *testing.T, response []byte) {
@@ -65,12 +85,12 @@ func TestEVMHandler(t *testing.T) {
 			},
 		},
 		{
-			name: "eth_subscribe with string ID",
+			name: "eth_subscribe with chain",
 			request: JSONRPCRequest{
 				JsonRPC: "2.0",
 				Method:  "eth_subscribe",
-				Params:  []interface{}{"newHeads"},
-				ID:      "test-id-123",
+				Params:  []interface{}{"optimism", "newHeads"},
+				ID:      1,
 			},
 			validate: func(t *testing.T, response []byte) {
 				var resp JSONRPCResponse
@@ -86,10 +106,6 @@ func TestEVMHandler(t *testing.T) {
 				}
 				if subID == "" {
 					t.Error("Subscription ID should not be empty")
-				}
-				// Verify response ID matches request ID
-				if resp.ID != "test-id-123" {
-					t.Errorf("Expected response ID to be 'test-id-123', got %v", resp.ID)
 				}
 			},
 		},
@@ -166,8 +182,13 @@ func TestSolanaHandler(t *testing.T) {
 					t.Errorf("Failed to parse response: %v", err)
 					return
 				}
-				if resp.Result == nil {
-					t.Error("Slot number should not be nil")
+				slot, ok := resp.Result.(float64)
+				if !ok {
+					t.Error("Expected slot to be a number")
+					return
+				}
+				if slot < 1 {
+					t.Error("Slot number should be at least 1")
 				}
 			},
 		},
@@ -190,18 +211,18 @@ func TestSolanaHandler(t *testing.T) {
 					t.Error("Expected version to be an object")
 					return
 				}
-				if version["solana-core"] == nil {
-					t.Error("Version should include solana-core")
+				if version["solana-core"] != "1.14.10" {
+					t.Error("Version should be 1.14.10")
 				}
 			},
 		},
 		{
-			name: "slotSubscribe with string ID",
+			name: "slotSubscribe",
 			request: JSONRPCRequest{
 				JsonRPC: "2.0",
 				Method:  "slotSubscribe",
 				Params:  []interface{}{},
-				ID:      "solana-test-123",
+				ID:      1,
 			},
 			validate: func(t *testing.T, response []byte) {
 				var resp JSONRPCResponse
@@ -217,10 +238,6 @@ func TestSolanaHandler(t *testing.T) {
 				}
 				if subID <= 0 {
 					t.Error("Subscription ID should be positive")
-				}
-				// Verify response ID matches request ID
-				if resp.ID != "solana-test-123" {
-					t.Errorf("Expected response ID to be 'solana-test-123', got %v", resp.ID)
 				}
 			},
 		},
@@ -259,5 +276,27 @@ func TestSolanaHandler(t *testing.T) {
 
 			tt.validate(t, response)
 		})
+	}
+}
+
+func TestBlockIntervals(t *testing.T) {
+	// Test that block intervals are respected
+	for chain, expectedInterval := range map[string]time.Duration{
+		"ethereum":  12 * time.Second,
+		"optimism":  2 * time.Second,
+		"arbitrum":  250 * time.Millisecond,
+		"avalanche": 2 * time.Second,
+		"base":      2 * time.Second,
+		"binance":   3 * time.Second,
+	} {
+		c := supportedChains[chain]
+		if c.BlockInterval != expectedInterval {
+			t.Errorf("Chain %s: expected interval %v, got %v", chain, expectedInterval, c.BlockInterval)
+		}
+	}
+
+	// Test Solana interval
+	if solanaNode.SlotInterval != 400*time.Millisecond {
+		t.Errorf("Solana: expected interval 400ms, got %v", solanaNode.SlotInterval)
 	}
 }

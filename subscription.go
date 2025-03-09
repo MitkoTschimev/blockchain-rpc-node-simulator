@@ -94,42 +94,44 @@ func calculateSolanaEpochRoot(slot uint64) uint64 {
 	return (slot / epochSize) * epochSize
 }
 
-func (sm *SubscriptionManager) BroadcastNewBlock(blockNum uint64) {
+func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint64) {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
 
 	for _, sub := range sm.subscriptions {
-		var notification interface{}
+		if sub.Type != chain {
+			continue
+		}
 
+		var notification interface{}
 		switch sub.Type {
-		case "evm":
-			if sub.Method != "newHeads" {
-				continue
-			}
+		case "ethereum", "optimism", "arbitrum", "avalanche", "base", "binance":
 			notification = JSONRPCNotification{
 				JsonRPC: "2.0",
 				Method:  "eth_subscription",
-				Params: map[string]interface{}{
-					"subscription": fmt.Sprintf("%d", sub.ID),
-					"result": map[string]interface{}{
-						"number": fmt.Sprintf("0x%x", blockNum),
+				Params: SubscriptionParams{
+					Subscription: fmt.Sprintf("%d", sub.ID), // EVM uses string IDs
+					Result: map[string]interface{}{
+						"number": fmt.Sprintf("0x%x", blockNumber),
+						"chain":  chain,
 					},
 				},
 			}
 		case "solana":
-			if sub.Method != "slotNotification" {
-				continue
+			// Calculate root as a few blocks behind the current slot
+			root := uint64(0)
+			if blockNumber > 3 {
+				root = blockNumber - 3
 			}
-			root := calculateSolanaEpochRoot(blockNum)
 			notification = JSONRPCNotification{
 				JsonRPC: "2.0",
 				Method:  "slotNotification",
-				Params: map[string]interface{}{
-					"subscription": sub.ID,
-					"result": map[string]interface{}{
-						"parent": blockNum - 1,
+				Params: SubscriptionParams{
+					Subscription: sub.ID, // Solana uses numeric IDs
+					Result: map[string]interface{}{
+						"parent": blockNumber - 1,
 						"root":   root,
-						"slot":   blockNum,
+						"slot":   blockNumber,
 					},
 				},
 			}
@@ -145,4 +147,9 @@ func (sm *SubscriptionManager) BroadcastNewBlock(blockNum uint64) {
 			sm.Unsubscribe(sub.ID)
 		}
 	}
+}
+
+type SubscriptionParams struct {
+	Subscription interface{}            `json:"subscription"`
+	Result       map[string]interface{} `json:"result"`
 }

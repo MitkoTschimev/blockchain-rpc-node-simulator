@@ -19,24 +19,23 @@ var (
 			return true // Allow all origins for testing
 		},
 	}
-	currentBlock         uint64 = 1 // Start from block 1
-	blockIncrementPaused uint32 = 0 // 0 = running, 1 = paused
-	subManager                  = NewSubscriptionManager()
-	blockInterval               = 2 * time.Second
+	subManager = NewSubscriptionManager()
 )
 
 func main() {
-	// Start block number incrementer
-	go func() {
-		for {
-			time.Sleep(blockInterval)
-			if atomic.LoadUint32(&blockIncrementPaused) == 0 {
-				newBlock := atomic.AddUint64(&currentBlock, 1)
-				log.Printf("Block number increased to: %d", newBlock)
-				subManager.BroadcastNewBlock(newBlock)
+	// Start block number incrementer for each chain
+	for chainName, chain := range supportedChains {
+		go func(name string, c *EVMChain) {
+			for {
+				time.Sleep(c.BlockInterval)
+				if atomic.LoadUint32(&c.BlockIncrement) == 0 {
+					newBlock := atomic.AddUint64(&c.BlockNumber, 1)
+					log.Printf("Block number increased for %s: %d (interval: %v)", name, newBlock, c.BlockInterval)
+					subManager.BroadcastNewBlock(name, newBlock)
+				}
 			}
-		}
-	}()
+		}(chainName, chain)
+	}
 
 	// Create a new ServeMux for better route handling
 	mux := http.NewServeMux()
@@ -91,7 +90,20 @@ func (w *wsConnWrapper) Close() error {
 	return w.Conn.Close()
 }
 
+// GetMessages implements WSConn for compatibility with tests
+// This is not used in production, only needed to satisfy the interface
+func (w *wsConnWrapper) GetMessages() [][]byte {
+	return nil
+}
+
+// ClearMessages implements WSConn for compatibility with tests
+// This is not used in production, only needed to satisfy the interface
+func (w *wsConnWrapper) ClearMessages() {
+	// No-op in production
+}
+
 func handleEVMWebSocket(w http.ResponseWriter, r *http.Request) {
+	log.Printf("EVM client connected")
 	if IsBlocked() {
 		http.Error(w, "Server is temporarily unavailable", http.StatusServiceUnavailable)
 		return
