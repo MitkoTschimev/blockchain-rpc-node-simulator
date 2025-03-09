@@ -20,6 +20,16 @@ var (
 		},
 	}
 	subManager = NewSubscriptionManager()
+
+	// chainIdToName maps chainIds to their corresponding chain names
+	chainIdToName = map[string]string{
+		"1":     "ethereum",  // Ethereum Mainnet
+		"10":    "optimism",  // Optimism
+		"42161": "arbitrum",  // Arbitrum
+		"43114": "avalanche", // Avalanche
+		"8453":  "base",      // Base
+		"56":    "binance",   // Binance Smart Chain
+	}
 )
 
 func main() {
@@ -41,7 +51,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	// WebSocket endpoints
-	mux.HandleFunc("/ws/evm", handleEVMWebSocket)
+	mux.HandleFunc("/ws/evm/", handleEVMWebSocketWithChain) // Note the trailing slash
 	mux.HandleFunc("/ws/solana", handleSolanaWebSocket)
 
 	// HTTP endpoints
@@ -59,7 +69,10 @@ func main() {
 	port = ":" + port
 
 	log.Printf("Starting RPC simulator on port %s", port)
-	log.Printf("EVM endpoint: ws://localhost%s/ws/evm", port)
+	log.Printf("EVM endpoints:")
+	for chainId, chainName := range chainIdToName {
+		log.Printf("  %s: ws://localhost%s/ws/evm/%s", chainName, port, chainId)
+	}
 	log.Printf("Solana endpoint: ws://localhost%s/ws/solana", port)
 	log.Printf("Control endpoints:")
 	log.Printf("  POST /control/connections/drop - Drop all connections (optional: block_duration_seconds)")
@@ -102,8 +115,17 @@ func (w *wsConnWrapper) ClearMessages() {
 	// No-op in production
 }
 
-func handleEVMWebSocket(w http.ResponseWriter, r *http.Request) {
-	log.Printf("EVM client connected")
+// handleEVMWebSocketWithChain handles WebSocket connections for specific EVM chains
+func handleEVMWebSocketWithChain(w http.ResponseWriter, r *http.Request) {
+	// Extract chainId from URL path
+	chainId := r.URL.Path[len("/ws/evm/"):]
+	chainName, exists := chainIdToName[chainId]
+	if !exists {
+		http.Error(w, "Invalid chain ID", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("EVM client connected to chain %s (chainId: %s)", chainName, chainId)
 	if IsBlocked() {
 		http.Error(w, "Server is temporarily unavailable", http.StatusServiceUnavailable)
 		return
@@ -119,7 +141,7 @@ func handleEVMWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() {
 		count := subManager.CleanupConnection(conn)
-		log.Printf("Cleaned up %d subscriptions for disconnected EVM client", count)
+		log.Printf("Cleaned up %d subscriptions for disconnected EVM client (chain: %s)", count, chainName)
 		conn.Close()
 	}()
 
@@ -127,19 +149,43 @@ func handleEVMWebSocket(w http.ResponseWriter, r *http.Request) {
 		messageType, message, err := wsConn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("EVM client disconnected unexpectedly: %v", err)
+				log.Printf("EVM client disconnected unexpectedly from chain %s: %v", chainName, err)
 			}
 			break
 		}
 
-		response, err := handleEVMRequest(message, conn)
+		// Parse the request to inject the chain name
+		var request JSONRPCRequest
+		if err := json.Unmarshal(message, &request); err != nil {
+			log.Printf("Failed to parse request for chain %s: %v", chainName, err)
+			break
+		}
+
+		// Inject chain name as the first parameter for methods that need it
+		switch request.Method {
+		case "eth_chainId", "eth_blockNumber", "eth_subscribe":
+			// Prepend chain name to params
+			newParams := make([]interface{}, 0, len(request.Params)+1)
+			newParams = append(newParams, chainName)
+			newParams = append(newParams, request.Params...)
+			request.Params = newParams
+		}
+
+		// Re-marshal the modified request
+		modifiedMessage, err := json.Marshal(request)
 		if err != nil {
-			log.Println("Handler error:", err)
+			log.Printf("Failed to marshal modified request for chain %s: %v", chainName, err)
+			break
+		}
+
+		response, err := handleEVMRequest(modifiedMessage, conn)
+		if err != nil {
+			log.Printf("Handler error for chain %s: %v", chainName, err)
 			break
 		}
 
 		if err := conn.WriteMessage(messageType, response); err != nil {
-			log.Println("Write error:", err)
+			log.Printf("Write error for chain %s: %v", chainName, err)
 			break
 		}
 	}
