@@ -48,11 +48,16 @@ func (sm *SubscriptionManager) Unsubscribe(id uint64) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
+	log.Printf("Looking for subscription with ID: %d", id)
+	log.Printf("Current subscriptions: %v", sm.subscriptions)
+
 	sub, exists := sm.subscriptions[id]
 	if !exists {
+		log.Printf("Subscription %d not found", id)
 		return fmt.Errorf("subscription %d not found", id)
 	}
 
+	log.Printf("Found subscription: ID=%d, Type=%s, Method=%s", id, sub.Type, sub.Method)
 	delete(sm.subscriptions, id)
 	log.Printf("Subscription removed: ID=%d, Type=%s, Method=%s", id, sub.Type, sub.Method)
 	return nil
@@ -103,7 +108,7 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 				JsonRPC: "2.0",
 				Method:  "eth_subscription",
 				Params: SubscriptionParams{
-					Subscription: fmt.Sprintf("%d", sub.ID), // EVM uses string IDs
+					Subscription: fmt.Sprintf("0x%x", sub.ID), // EVM uses hex string IDs
 					Result: map[string]interface{}{
 						"number": fmt.Sprintf("0x%x", blockNumber),
 					},

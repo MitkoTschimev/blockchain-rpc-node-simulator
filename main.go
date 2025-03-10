@@ -119,6 +119,7 @@ func main() {
 type wsConnWrapper struct {
 	*websocket.Conn
 	writeMu sync.Mutex // Protects writes to the connection
+	chainId string     // Store the chainId for this connection
 }
 
 func (w *wsConnWrapper) WriteMessage(messageType int, data []byte) error {
@@ -167,7 +168,8 @@ func handleEVMWebSocketWithChain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	conn := &wsConnWrapper{
-		Conn: wsConn,
+		Conn:    wsConn,
+		chainId: chainId,
 	}
 	defer func() {
 		count := subManager.CleanupConnection(conn)
@@ -184,31 +186,7 @@ func handleEVMWebSocketWithChain(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		// Parse the request to inject the chain name
-		var request JSONRPCRequest
-		if err := json.Unmarshal(message, &request); err != nil {
-			log.Printf("Failed to parse request for chain %s: %v", chainName, err)
-			break
-		}
-
-		// Inject chain name as the first parameter for methods that need it
-		switch request.Method {
-		case "eth_chainId", "eth_blockNumber", "eth_subscribe":
-			// Prepend chain name to params
-			newParams := make([]interface{}, 0, len(request.Params)+1)
-			newParams = append(newParams, chainName)
-			newParams = append(newParams, request.Params...)
-			request.Params = newParams
-		}
-
-		// Re-marshal the modified request
-		modifiedMessage, err := json.Marshal(request)
-		if err != nil {
-			log.Printf("Failed to marshal modified request for chain %s: %v", chainName, err)
-			break
-		}
-
-		response, err := handleEVMRequest(modifiedMessage, conn)
+		response, err := handleEVMRequest(message, conn, chainId)
 		if err != nil {
 			log.Printf("Handler error for chain %s: %v", chainName, err)
 			break
@@ -294,7 +272,7 @@ func handleEVMHTTPWithChain(w http.ResponseWriter, r *http.Request) {
 
 	// Create a mock connection for the request
 	mockConn := NewMockWSConn()
-	response, err := handleEVMRequest(message, mockConn)
+	response, err := handleEVMRequest(message, mockConn, chainId)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

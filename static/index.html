@@ -176,6 +176,20 @@
             </div>
 
             <div class="card">
+                <h2>Connection Management</h2>
+                <div class="form-group">
+                    <label for="blockDuration">Block Duration (seconds)</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="number" id="blockDuration" class="form-control" step="1" min="0" placeholder="Duration">
+                        <button id="dropConnectionsBtn" class="btn btn-danger">Drop All Connections</button>
+                    </div>
+                    <small style="color: #666; margin-top: 0.25rem; display: block;">
+                        Duration to block new connections after dropping (optional)
+                    </small>
+                </div>
+            </div>
+
+            <div class="card">
                 <h2>Block Control</h2>
                 <div class="form-group">
                     <label for="blockNumber">Set Block Number</label>

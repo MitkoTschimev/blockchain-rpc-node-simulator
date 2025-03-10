@@ -17,7 +17,7 @@ func TestEVMHandler(t *testing.T) {
 		ID:      1,
 	}
 	subRequestData, _ := json.Marshal(subRequest)
-	subResponse, _ := handleEVMRequest(subRequestData, conn)
+	subResponse, _ := handleEVMRequest(subRequestData, conn, "1")
 	var subResp JSONRPCResponse
 	json.Unmarshal(subResponse, &subResp)
 	subscriptionID := subResp.Result.(string)
@@ -137,7 +137,7 @@ func TestEVMHandler(t *testing.T) {
 				t.Fatalf("Failed to marshal request: %v", err)
 			}
 
-			response, err := handleEVMRequest(requestData, conn)
+			response, err := handleEVMRequest(requestData, conn, "1")
 			if err != nil {
 				t.Fatalf("Handler failed: %v", err)
 			}

@@ -16,7 +16,7 @@ func init() {
 	}
 }
 
-func handleEVMRequest(message []byte, conn WSConn) ([]byte, error) {
+func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, error) {
 	var request JSONRPCRequest
 	if err := json.Unmarshal(message, &request); err != nil {
 		log.Printf("Error unmarshalling message: %s", err)
@@ -34,12 +34,9 @@ func handleEVMRequest(message []byte, conn WSConn) ([]byte, error) {
 		return createErrorResponse(-32600, "Invalid Request", nil, request.ID)
 	}
 
-	// Get chain from params or default to ethereum
-	chainName := "ethereum"
-	if len(request.Params) > 0 {
-		if chainParam, ok := request.Params[0].(string); ok {
-			chainName = chainParam
-		}
+	chainName, exists := chainIdToName[chainId]
+	if !exists {
+		return createErrorResponse(-32602, fmt.Sprintf("Unsupported chain ID: %s", chainId), nil, request.ID)
 	}
 
 	chain, ok := supportedChains[chainName]
@@ -62,10 +59,10 @@ func handleEVMRequest(message []byte, conn WSConn) ([]byte, error) {
 	case "eth_getBlockByNumber":
 		result = fmt.Sprintf("0x%x", atomic.LoadUint64(&chain.BlockNumber))
 	case "eth_subscribe":
-		if len(request.Params) < 2 {
+		if len(request.Params) < 1 {
 			return createErrorResponse(-32602, "Invalid params", nil, request.ID)
 		}
-		subscriptionType, ok := request.Params[1].(string)
+		subscriptionType, ok := request.Params[0].(string)
 		if !ok {
 			return createErrorResponse(-32602, "Invalid subscription type", nil, request.ID)
 		}
@@ -78,19 +75,24 @@ func handleEVMRequest(message []byte, conn WSConn) ([]byte, error) {
 		if err != nil {
 			return createErrorResponse(-32603, err.Error(), nil, request.ID)
 		}
-		log.Printf("New EVM subscription created: ID=%d, Chain=%s, Type=%s", subID, chainName, subscriptionType)
-		result = fmt.Sprintf("%d", subID) // Return subscription ID as string for EVM
+
+		result = fmt.Sprintf("0x%x", subID) // Return subscription ID as hex string for EVM
 
 	case "eth_unsubscribe":
 		if len(request.Params) < 1 {
 			return createErrorResponse(-32602, "Invalid params", nil, request.ID)
 		}
 
-		// Handle both string and number subscription IDs
+		// Handle hex string subscription IDs
 		var subscriptionID uint64
 		switch v := request.Params[0].(type) {
 		case string:
-			subscriptionID, err = strconv.ParseUint(v, 10, 64)
+			// Remove "0x" prefix if present
+			hexStr := v
+			if len(hexStr) > 2 && hexStr[:2] == "0x" {
+				hexStr = hexStr[2:]
+			}
+			subscriptionID, err = strconv.ParseUint(hexStr, 16, 64)
 			if err != nil {
 				return createErrorResponse(-32602, "Invalid subscription ID", nil, request.ID)
 			}

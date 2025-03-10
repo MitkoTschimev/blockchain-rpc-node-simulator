@@ -13,6 +13,7 @@ class RPCSimulator {
         document.getElementById('pauseBlockBtn').addEventListener('click', () => this.pauseBlock());
         document.getElementById('resumeBlockBtn').addEventListener('click', () => this.resumeBlock());
         document.getElementById('setIntervalBtn').addEventListener('click', () => this.setBlockInterval());
+        document.getElementById('dropConnectionsBtn').addEventListener('click', () => this.dropConnections());
         
         // New event listeners for chain disruptions
         document.getElementById('setTimeoutBtn').addEventListener('click', () => this.setTimeout());
@@ -250,6 +251,23 @@ class RPCSimulator {
             this.log(`Chain reorganization triggered for ${blocks} blocks`);
         } else {
             this.log(`Failed to trigger reorg: ${response.statusText}`, 'error');
+        }
+    }
+
+    async dropConnections() {
+        const duration = document.getElementById('blockDuration').value;
+        const data = duration ? { block_duration_seconds: parseInt(duration) } : {};
+        
+        const response = await this.sendControlRequest('/control/connections/drop', data);
+
+        if (response.ok) {
+            this.log('Dropped all connections' + (duration ? ` and blocked new connections for ${duration} seconds` : ''));
+            // If we have an active connection, disconnect it
+            if (this.ws) {
+                this.disconnect();
+            }
+        } else {
+            this.log(`Failed to drop connections: ${response.statusText}`, 'error');
         }
     }
 
