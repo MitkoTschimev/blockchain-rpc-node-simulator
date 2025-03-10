@@ -5,22 +5,7 @@ import (
 	"log"
 	"strconv"
 	"sync/atomic"
-	"time"
 )
-
-func init() {
-	// Start Solana slot incrementer
-	go func() {
-		for {
-			time.Sleep(solanaNode.SlotInterval)
-			if atomic.LoadUint32(&solanaNode.SlotIncrement) == 0 {
-				newSlot := atomic.AddUint64(&solanaNode.SlotNumber, 1)
-				log.Printf("Slot number increased for Solana: %d (interval: %v)", newSlot, solanaNode.SlotInterval)
-				subManager.BroadcastNewBlock("solana", newSlot)
-			}
-		}
-	}()
-}
 
 func handleSolanaRequest(message []byte, conn WSConn) ([]byte, error) {
 	var request JSONRPCRequest

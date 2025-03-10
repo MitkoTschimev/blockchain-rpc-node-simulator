@@ -45,7 +45,6 @@ func main() {
 				// Check if blocks are paused
 				if atomic.LoadUint32(&c.BlockIncrement) == 0 {
 					newBlock := atomic.AddUint64(&c.BlockNumber, 1)
-					log.Printf("Block number increased for %s: %d (interval: %v)", name, newBlock, c.BlockInterval)
 					subManager.BroadcastNewBlock(name, newBlock)
 				}
 			}
@@ -63,7 +62,6 @@ func main() {
 			// Check if slots are paused
 			if atomic.LoadUint32(&solanaNode.SlotIncrement) == 0 {
 				newSlot := atomic.AddUint64(&solanaNode.SlotNumber, 1)
-				log.Printf("Slot number increased for Solana: %d (interval: %v)", newSlot, solanaNode.SlotInterval)
 				subManager.BroadcastNewBlock("solana", newSlot)
 			}
 		}
@@ -80,8 +78,8 @@ func main() {
 	mux.HandleFunc("/ws/evm/", handleEVMWebSocketWithChain)
 	mux.HandleFunc("/ws/solana", handleSolanaWebSocket)
 
-	// HTTP endpoints
-	mux.HandleFunc("/evm", handleEVMHTTP)
+	// HTTP endpoints with chain support
+	mux.HandleFunc("/evm/", handleEVMHTTPWithChain) // Note the trailing slash
 	mux.HandleFunc("/solana", handleSolanaHTTP)
 
 	// Control endpoints
@@ -265,9 +263,17 @@ func handleSolanaWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleEVMHTTP(w http.ResponseWriter, r *http.Request) {
+func handleEVMHTTPWithChain(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract chainId from URL path
+	chainId := r.URL.Path[len("/evm/"):]
+	_, exists := chainIdToName[chainId]
+	if !exists {
+		http.Error(w, "Invalid chain ID", http.StatusBadRequest)
 		return
 	}
 
