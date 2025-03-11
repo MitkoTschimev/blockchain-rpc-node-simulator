@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -19,7 +20,8 @@ var (
 			return true // Allow all origins for testing
 		},
 	}
-	subManager = NewSubscriptionManager()
+	subManager  = NewSubscriptionManager()
+	connTracker = NewConnectionTracker()
 
 	// chainIdToName maps chainIds to their corresponding chain names
 	chainIdToName = map[string]string{
@@ -81,6 +83,9 @@ func main() {
 	// HTTP endpoints with chain support
 	mux.HandleFunc("/evm/", handleEVMHTTPWithChain) // Note the trailing slash
 	mux.HandleFunc("/solana", handleSolanaHTTP)
+
+	// SSE endpoints
+	mux.HandleFunc("/sse/connections", handleConnectionsSSE)
 
 	// Control endpoints
 	handleControlEndpoints(mux)
@@ -146,6 +151,51 @@ func (w *wsConnWrapper) ClearMessages() {
 	// No-op in production
 }
 
+func handleConnectionsSSE(w http.ResponseWriter, r *http.Request) {
+	// Set headers for SSE
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// Create a channel for client disconnection
+	clientGone := r.Context().Done()
+	ticker := time.NewTicker(time.Second) // Update every second
+	defer ticker.Stop()
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	// Send initial connection counts
+	counts := connTracker.GetConnections()
+	data, err := json.Marshal(counts)
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprintf(w, "data: %s\n\n", data)
+	flusher.Flush()
+
+	// Keep sending updates
+	for {
+		select {
+		case <-clientGone:
+			return // Client disconnected
+		case <-ticker.C:
+			counts := connTracker.GetConnections()
+			data, err := json.Marshal(counts)
+			if err != nil {
+				continue
+			}
+			fmt.Fprintf(w, "data: %s\n\n", data)
+			flusher.Flush()
+		}
+	}
+}
+
 // handleEVMWebSocketWithChain handles WebSocket connections for specific EVM chains
 func handleEVMWebSocketWithChain(w http.ResponseWriter, r *http.Request) {
 	// Extract chainId from URL path
@@ -171,7 +221,11 @@ func handleEVMWebSocketWithChain(w http.ResponseWriter, r *http.Request) {
 		Conn:    wsConn,
 		chainId: chainId,
 	}
+
+	// Track the connection
+	connTracker.AddConnection(chainId)
 	defer func() {
+		connTracker.RemoveConnection(chainId)
 		count := subManager.CleanupConnection(conn)
 		log.Printf("Cleaned up %d subscriptions for disconnected EVM client (chain: %s)", count, chainName)
 		conn.Close()
@@ -213,7 +267,11 @@ func handleSolanaWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn := &wsConnWrapper{
 		Conn: wsConn,
 	}
+
+	// Track the connection
+	connTracker.AddConnection("solana")
 	defer func() {
+		connTracker.RemoveConnection("solana")
 		count := subManager.CleanupConnection(conn)
 		log.Printf("Cleaned up %d subscriptions for disconnected Solana client", count)
 		conn.Close()

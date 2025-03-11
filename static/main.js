@@ -4,6 +4,7 @@ class RPCSimulator {
         this.subscriptions = new Map();
         this.nextId = 1;
         this.setupEventListeners();
+        this.setupConnectionTracking();
     }
 
     setupEventListeners() {
@@ -284,6 +285,140 @@ class RPCSimulator {
             this.log(`Control request failed: ${error.message}`, 'error');
             return { ok: false, statusText: error.message };
         }
+    }
+
+    setupConnectionTracking() {
+        let retryCount = 0;
+        const maxRetries = 5;
+        const retryDelay = 2000; // 2 seconds
+
+        const connect = () => {
+            const evtSource = new EventSource('/sse/connections');
+            
+            evtSource.onopen = () => {
+                retryCount = 0; // Reset retry count on successful connection
+                this.log('Connection tracking active', 'info');
+                document.getElementById('connectionCounts').classList.remove('disconnected');
+            };
+            
+            evtSource.onmessage = (event) => {
+                try {
+                    const connections = JSON.parse(event.data);
+                    this.updateConnectionCounts(connections);
+                    
+                    // Update the connection status in the UI if we have an active WebSocket
+                    if (this.ws) {
+                        const chainId = document.getElementById('chainSelect').value;
+                        const count = connections[chainId] || 0;
+                        if (count === 0) {
+                            // Our connection might have been dropped externally
+                            this.updateConnectionStatus(false);
+                            this.ws = null;
+                            this.subscriptions.clear();
+                            this.updateSubscriptions();
+                        }
+                    }
+                } catch (error) {
+                    this.log('Error parsing connection data: ' + error.message, 'error');
+                }
+            };
+
+            evtSource.onerror = (error) => {
+                document.getElementById('connectionCounts').classList.add('disconnected');
+                this.log('Connection tracking error: ' + (error.message || 'Connection lost'), 'error');
+                evtSource.close();
+                
+                // Attempt to reconnect with exponential backoff
+                if (retryCount < maxRetries) {
+                    const delay = retryDelay * Math.pow(2, retryCount);
+                    retryCount++;
+                    this.log(`Retrying connection in ${delay/1000} seconds... (Attempt ${retryCount}/${maxRetries})`, 'warning');
+                    setTimeout(connect, delay);
+                } else {
+                    this.log('Failed to establish connection tracking after multiple attempts', 'error');
+                }
+            };
+        };
+
+        // Add styles for disconnected state
+        const style = document.createElement('style');
+        style.textContent = `
+            #connectionCounts.disconnected {
+                opacity: 0.6;
+                position: relative;
+            }
+            #connectionCounts.disconnected::after {
+                content: 'Reconnecting...';
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: var(--warning);
+                color: var(--dark);
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 0.8rem;
+                font-weight: 500;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Start the connection
+        connect();
+    }
+
+    updateConnectionCounts(connections) {
+        const tbody = document.getElementById('connectionCountsBody');
+        tbody.innerHTML = '';
+
+        // Chain name mapping
+        const chainNames = {
+            '1': 'Ethereum',
+            '10': 'Optimism',
+            '42161': 'Arbitrum',
+            '43114': 'Avalanche',
+            '8453': 'Base',
+            '56': 'Binance',
+            'solana': 'Solana'
+        };
+
+        // Sort chains by name
+        const sortedChains = Object.entries(connections).sort((a, b) => {
+            const nameA = chainNames[a[0]] || a[0];
+            const nameB = chainNames[b[0]] || b[0];
+            return nameA.localeCompare(nameB);
+        });
+
+        // Create table rows with animation
+        sortedChains.forEach(([chainId, count]) => {
+            const tr = document.createElement('tr');
+            const prevCount = tr.querySelector('.badge')?.textContent || '0';
+            
+            tr.innerHTML = `
+                <td style="padding: 8px; border-bottom: 1px solid #ddd;">
+                    ${chainNames[chainId] || chainId}
+                </td>
+                <td style="text-align: right; padding: 8px; border-bottom: 1px solid #ddd;">
+                    <span class="badge ${count > 0 ? 'badge-success' : 'badge-danger'} 
+                          ${count !== parseInt(prevCount) ? 'badge-updated' : ''}">${count}</span>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Add animation for updated values
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes badgeUpdate {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.2); }
+                100% { transform: scale(1); }
+            }
+            .badge-updated {
+                animation: badgeUpdate 0.3s ease-in-out;
+            }
+        `;
+        document.head.appendChild(style);
     }
 }
 
