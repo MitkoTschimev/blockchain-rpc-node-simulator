@@ -37,7 +37,7 @@ func handleSolanaRequest(message []byte, conn WSConn) ([]byte, error) {
 	case "getHealth":
 		result = "ok"
 	case "slotSubscribe":
-		subID, err := subManager.Subscribe("solana", conn, "slotNotification")
+		subID, err := subManager.Subscribe("501", conn, "slotNotification")
 		if err != nil {
 			return createErrorResponse(-32603, err.Error(), nil, request.ID)
 		}

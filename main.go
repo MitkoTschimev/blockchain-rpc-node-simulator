@@ -44,7 +44,20 @@ var (
 func main() {
 	// Start block number incrementer for each chain
 	for chainName, chain := range supportedChains {
-		go func(name string, c *EVMChain) {
+		go func(chainName string, c *EVMChain) {
+			// Find chain ID for this chain
+			var chainId string
+			for id, name := range chainIdToName {
+				if name == chainName {
+					chainId = id
+					break
+				}
+			}
+			if chainId == "" {
+				log.Printf("Warning: Could not find chain ID for %s", chainName)
+				return
+			}
+
 			for {
 				time.Sleep(c.BlockInterval)
 				// Check if blocks are interrupted
@@ -54,7 +67,7 @@ func main() {
 				// Check if blocks are paused
 				if atomic.LoadUint32(&c.BlockIncrement) == 0 {
 					newBlock := atomic.AddUint64(&c.BlockNumber, 1)
-					subManager.BroadcastNewBlock(name, newBlock)
+					subManager.BroadcastNewBlock(chainId, newBlock)
 				}
 			}
 		}(chainName, chain)
@@ -71,7 +84,7 @@ func main() {
 			// Check if slots are paused
 			if atomic.LoadUint32(&solanaNode.SlotIncrement) == 0 {
 				newSlot := atomic.AddUint64(&solanaNode.SlotNumber, 1)
-				subManager.BroadcastNewBlock("solana", newSlot)
+				subManager.BroadcastNewBlock("501", newSlot)
 			}
 		}
 	}()
@@ -106,7 +119,7 @@ func main() {
 	for chainId, chainName := range chainIdToName {
 		log.Printf("  %s: ws://localhost%s/ws/chain/%s", chainName, port, chainId)
 	}
-	log.Printf("Solana endpoint: ws://localhost%s/ws/solana", port)
+	log.Printf("Solana endpoint: ws://localhost%s/ws/chain/501", port)
 	log.Printf("Control endpoints:")
 	log.Printf("  POST /control/connections/drop - Drop all connections (optional: block_duration_seconds)")
 	log.Printf("  POST /control/block/set - Set block number")

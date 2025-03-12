@@ -46,6 +46,41 @@ var supportedChains = map[string]*EVMChain{
 		ChainID:       "0xa", // 10
 		BlockInterval: 2 * time.Second,
 	},
+	"binance": {
+		Name:          "binance",
+		ChainID:       "0x38", // 56
+		BlockInterval: 3 * time.Second,
+	},
+	"gnosis": {
+		Name:          "gnosis",
+		ChainID:       "0x64", // 100
+		BlockInterval: 5 * time.Second,
+	},
+	"polygon": {
+		Name:          "polygon",
+		ChainID:       "0x89", // 137
+		BlockInterval: 2 * time.Second,
+	},
+	"fantom": {
+		Name:          "fantom",
+		ChainID:       "0xfa", // 250
+		BlockInterval: 1 * time.Second,
+	},
+	"zksync": {
+		Name:          "zksync",
+		ChainID:       "0x144", // 324
+		BlockInterval: 1 * time.Second,
+	},
+	"klaytn": {
+		Name:          "klaytn",
+		ChainID:       "0x2019", // 8217
+		BlockInterval: 1 * time.Second,
+	},
+	"base": {
+		Name:          "base",
+		ChainID:       "0x2105", // 8453
+		BlockInterval: 2 * time.Second,
+	},
 	"arbitrum": {
 		Name:          "arbitrum",
 		ChainID:       "0xa4b1", // 42161
@@ -56,15 +91,10 @@ var supportedChains = map[string]*EVMChain{
 		ChainID:       "0xa86a", // 43114
 		BlockInterval: 2 * time.Second,
 	},
-	"base": {
-		Name:          "base",
-		ChainID:       "0x2105", // 8453
-		BlockInterval: 2 * time.Second,
-	},
-	"binance": {
-		Name:          "binance",
-		ChainID:       "0x38", // 56
-		BlockInterval: 3 * time.Second,
+	"linea": {
+		Name:          "linea",
+		ChainID:       "0xe708", // 59144
+		BlockInterval: 12 * time.Second,
 	},
 }
 

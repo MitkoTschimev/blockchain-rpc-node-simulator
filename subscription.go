@@ -41,6 +41,7 @@ func (sm *SubscriptionManager) Subscribe(subType string, conn WSConn, method str
 		Method: method,
 	}
 
+	log.Printf("Created subscription: ID=%d, Type=%s, Method=%s", id, subType, method)
 	return id, nil
 }
 
@@ -102,7 +103,7 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 		}
 
 		var notification interface{}
-		switch sub.Type {
+		switch chain {
 		case "1", "10", "56", "100", "137", "250", "324", "8217", "8453", "42161", "43114", "59144":
 			notification = JSONRPCNotification{
 				JsonRPC: "2.0",

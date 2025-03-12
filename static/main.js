@@ -110,8 +110,8 @@ class RPCSimulator {
         const request = {
             jsonrpc: '2.0',
             id: this.nextId++,
-            method: chainId === 'solana' ? 'slotSubscribe' : 'eth_subscribe',
-            params: chainId === 'solana' ? [] : ['newHeads']
+            method: chainId === '501' ? 'slotSubscribe' : 'eth_subscribe',
+            params: chainId === '501' ? [] : ['newHeads']
         };
 
         this.ws.send(JSON.stringify(request));
@@ -124,7 +124,7 @@ class RPCSimulator {
         const request = {
             jsonrpc: '2.0',
             id: this.nextId++,
-            method: chainId === 'solana' ? 'slotUnsubscribe' : 'eth_unsubscribe',
+            method: chainId === '501' ? 'slotUnsubscribe' : 'eth_unsubscribe',
             params: [subscriptionId]
         };
 
