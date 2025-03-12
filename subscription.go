@@ -109,7 +109,7 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 				JsonRPC: "2.0",
 				Method:  "eth_subscription",
 				Params: SubscriptionParams{
-					Subscription: fmt.Sprintf("%d", sub.ID), // EVM uses numeric string IDs
+					Subscription: fmt.Sprintf("0x%x", sub.ID),
 					Result: map[string]interface{}{
 						"number": fmt.Sprintf("0x%x", blockNumber),
 					},

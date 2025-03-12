@@ -79,7 +79,7 @@ func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, erro
 			return createErrorResponse(-32603, err.Error(), nil, request.ID)
 		}
 
-		result = fmt.Sprintf("%d", subID) // Return subscription ID as decimal string for consistency
+		result = fmt.Sprintf("0x%x", subID) // Return subscription ID as hex string for EVM
 
 	case "eth_unsubscribe":
 		if len(request.Params) < 1 {
