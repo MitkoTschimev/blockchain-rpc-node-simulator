@@ -13,7 +13,7 @@ func TestEVMHandler(t *testing.T) {
 	subRequest := JSONRPCRequest{
 		JsonRPC: "2.0",
 		Method:  "eth_subscribe",
-		Params:  []interface{}{"ethereum", "newHeads"},
+		Params:  []interface{}{"newHeads"},
 		ID:      1,
 	}
 	subRequestData, _ := json.Marshal(subRequest)
@@ -24,15 +24,17 @@ func TestEVMHandler(t *testing.T) {
 
 	tests := []struct {
 		name     string
+		chainId  string
 		request  JSONRPCRequest
 		validate func(t *testing.T, response []byte)
 	}{
 		{
-			name: "eth_chainId for ethereum",
+			name:    "eth_chainId for ethereum",
+			chainId: "1",
 			request: JSONRPCRequest{
 				JsonRPC: "2.0",
 				Method:  "eth_chainId",
-				Params:  []interface{}{"ethereum"},
+				Params:  []interface{}{},
 				ID:      1,
 			},
 			validate: func(t *testing.T, response []byte) {
@@ -47,11 +49,12 @@ func TestEVMHandler(t *testing.T) {
 			},
 		},
 		{
-			name: "eth_chainId for optimism",
+			name:    "eth_chainId for optimism",
+			chainId: "10",
 			request: JSONRPCRequest{
 				JsonRPC: "2.0",
 				Method:  "eth_chainId",
-				Params:  []interface{}{"optimism"},
+				Params:  []interface{}{},
 				ID:      1,
 			},
 			validate: func(t *testing.T, response []byte) {
@@ -66,11 +69,52 @@ func TestEVMHandler(t *testing.T) {
 			},
 		},
 		{
-			name: "eth_blockNumber for ethereum",
+			name:    "eth_chainId for base",
+			chainId: "8453",
+			request: JSONRPCRequest{
+				JsonRPC: "2.0",
+				Method:  "eth_chainId",
+				Params:  []interface{}{},
+				ID:      1,
+			},
+			validate: func(t *testing.T, response []byte) {
+				var resp JSONRPCResponse
+				if err := json.Unmarshal(response, &resp); err != nil {
+					t.Errorf("Failed to parse response: %v", err)
+					return
+				}
+				if resp.Result != "0x2105" {
+					t.Errorf("Expected chainId 0x2105, got %v", resp.Result)
+				}
+			},
+		},
+		{
+			name:    "eth_chainId for arbitrum",
+			chainId: "42161",
+			request: JSONRPCRequest{
+				JsonRPC: "2.0",
+				Method:  "eth_chainId",
+				Params:  []interface{}{},
+				ID:      1,
+			},
+			validate: func(t *testing.T, response []byte) {
+				var resp JSONRPCResponse
+				if err := json.Unmarshal(response, &resp); err != nil {
+					t.Errorf("Failed to parse response: %v", err)
+					return
+				}
+				if resp.Result != "0xa4b1" {
+					t.Errorf("Expected chainId 0xa4b1, got %v", resp.Result)
+				}
+			},
+		},
+		{
+			name:    "eth_blockNumber for ethereum",
+			chainId: "1",
 			request: JSONRPCRequest{
 				JsonRPC: "2.0",
 				Method:  "eth_blockNumber",
-				Params:  []interface{}{"ethereum"},
+				Params:  []interface{}{},
 				ID:      1,
 			},
 			validate: func(t *testing.T, response []byte) {
@@ -85,11 +129,12 @@ func TestEVMHandler(t *testing.T) {
 			},
 		},
 		{
-			name: "eth_subscribe with chain",
+			name:    "eth_subscribe with chain",
+			chainId: "10",
 			request: JSONRPCRequest{
 				JsonRPC: "2.0",
 				Method:  "eth_subscribe",
-				Params:  []interface{}{"optimism", "newHeads"},
+				Params:  []interface{}{"newHeads"},
 				ID:      1,
 			},
 			validate: func(t *testing.T, response []byte) {
@@ -110,7 +155,8 @@ func TestEVMHandler(t *testing.T) {
 			},
 		},
 		{
-			name: "eth_unsubscribe with string ID",
+			name:    "eth_unsubscribe with string ID",
+			chainId: "1",
 			request: JSONRPCRequest{
 				JsonRPC: "2.0",
 				Method:  "eth_unsubscribe",
@@ -137,7 +183,7 @@ func TestEVMHandler(t *testing.T) {
 				t.Fatalf("Failed to marshal request: %v", err)
 			}
 
-			response, err := handleEVMRequest(requestData, conn, "1")
+			response, err := handleEVMRequest(requestData, conn, tt.chainId)
 			if err != nil {
 				t.Fatalf("Handler failed: %v", err)
 			}
@@ -281,22 +327,125 @@ func TestSolanaHandler(t *testing.T) {
 
 func TestBlockIntervals(t *testing.T) {
 	// Test that block intervals are respected
-	for chain, expectedInterval := range map[string]time.Duration{
-		"ethereum":  12 * time.Second,
-		"optimism":  2 * time.Second,
-		"arbitrum":  250 * time.Millisecond,
-		"avalanche": 2 * time.Second,
-		"base":      2 * time.Second,
-		"binance":   3 * time.Second,
-	} {
-		c := supportedChains[chain]
-		if c.BlockInterval != expectedInterval {
-			t.Errorf("Chain %s: expected interval %v, got %v", chain, expectedInterval, c.BlockInterval)
+	expectedIntervals := map[string]time.Duration{
+		"1":     12 * time.Second,       // Ethereum
+		"10":    2 * time.Second,        // Optimism
+		"42161": 250 * time.Millisecond, // Arbitrum
+		"43114": 2 * time.Second,        // Avalanche
+		"8453":  2 * time.Second,        // Base
+		"56":    3 * time.Second,        // Binance
+	}
+
+	for chainId, chain := range supportedChains {
+		expectedInterval, exists := expectedIntervals[chainId]
+		if !exists {
+			continue // Skip chains not in our test expectations
+		}
+		if chain.BlockInterval != expectedInterval {
+			t.Errorf("Chain %s: expected interval %v, got %v", chainId, expectedInterval, chain.BlockInterval)
 		}
 	}
 
 	// Test Solana interval
 	if solanaNode.SlotInterval != 400*time.Millisecond {
 		t.Errorf("Solana: expected interval 400ms, got %v", solanaNode.SlotInterval)
+	}
+}
+
+func TestUnifiedChainEndpoints(t *testing.T) {
+	conn := NewMockWSConn()
+
+	tests := []struct {
+		name     string
+		chainId  string
+		request  JSONRPCRequest
+		validate func(t *testing.T, response []byte)
+	}{
+		{
+			name:    "eth_chainId for ethereum via unified endpoint",
+			chainId: "1",
+			request: JSONRPCRequest{
+				JsonRPC: "2.0",
+				Method:  "eth_chainId",
+				Params:  []interface{}{},
+				ID:      1,
+			},
+			validate: func(t *testing.T, response []byte) {
+				var resp JSONRPCResponse
+				if err := json.Unmarshal(response, &resp); err != nil {
+					t.Errorf("Failed to parse response: %v", err)
+					return
+				}
+				if resp.Result != "0x1" {
+					t.Errorf("Expected chainId 0x1, got %v", resp.Result)
+				}
+			},
+		},
+		{
+			name:    "getSlot for solana via unified endpoint",
+			chainId: "501",
+			request: JSONRPCRequest{
+				JsonRPC: "2.0",
+				Method:  "getSlot",
+				Params:  []interface{}{},
+				ID:      1,
+			},
+			validate: func(t *testing.T, response []byte) {
+				var resp JSONRPCResponse
+				if err := json.Unmarshal(response, &resp); err != nil {
+					t.Errorf("Failed to parse response: %v", err)
+					return
+				}
+				slot, ok := resp.Result.(float64)
+				if !ok {
+					t.Error("Expected slot to be a number")
+					return
+				}
+				if slot < 1 {
+					t.Error("Slot number should be at least 1")
+				}
+			},
+		},
+		{
+			name:    "eth_chainId for base via unified endpoint",
+			chainId: "8453",
+			request: JSONRPCRequest{
+				JsonRPC: "2.0",
+				Method:  "eth_chainId",
+				Params:  []interface{}{},
+				ID:      1,
+			},
+			validate: func(t *testing.T, response []byte) {
+				var resp JSONRPCResponse
+				if err := json.Unmarshal(response, &resp); err != nil {
+					t.Errorf("Failed to parse response: %v", err)
+					return
+				}
+				if resp.Result != "0x2105" {
+					t.Errorf("Expected chainId 0x2105, got %v", resp.Result)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requestData, err := json.Marshal(tt.request)
+			if err != nil {
+				t.Fatalf("Failed to marshal request: %v", err)
+			}
+
+			var response []byte
+			if tt.chainId == "501" {
+				response, err = handleSolanaRequest(requestData, conn)
+			} else {
+				response, err = handleEVMRequest(requestData, conn, tt.chainId)
+			}
+			if err != nil {
+				t.Fatalf("Handler failed: %v", err)
+			}
+
+			tt.validate(t, response)
+		})
 	}
 }

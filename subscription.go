@@ -103,18 +103,18 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 
 		var notification interface{}
 		switch sub.Type {
-		case "ethereum", "optimism", "arbitrum", "avalanche", "base", "binance":
+		case "1", "10", "56", "100", "137", "250", "324", "8217", "8453", "42161", "43114", "59144":
 			notification = JSONRPCNotification{
 				JsonRPC: "2.0",
 				Method:  "eth_subscription",
 				Params: SubscriptionParams{
-					Subscription: fmt.Sprintf("0x%x", sub.ID), // EVM uses hex string IDs
+					Subscription: fmt.Sprintf("%d", sub.ID), // EVM uses numeric string IDs
 					Result: map[string]interface{}{
 						"number": fmt.Sprintf("0x%x", blockNumber),
 					},
 				},
 			}
-		case "solana":
+		case "501":
 			// Calculate root as a few blocks behind the current slot
 			root := uint64(0)
 			if blockNumber > 3 {

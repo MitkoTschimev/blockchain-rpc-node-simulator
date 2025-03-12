@@ -14,6 +14,9 @@ func init() {
 		chain.BlockNumber = 1
 		chain.BlockIncrement = 0
 	}
+	// Initialize Solana slot number
+	solanaNode.SlotNumber = 1
+	solanaNode.SlotIncrement = 0
 }
 
 func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, error) {

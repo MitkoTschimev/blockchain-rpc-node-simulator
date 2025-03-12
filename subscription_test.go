@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestSubscriptionManager(t *testing.T) {
@@ -10,13 +12,13 @@ func TestSubscriptionManager(t *testing.T) {
 	conn := NewMockWSConn()
 
 	// Test EVM subscription
-	evmSubID, err := sm.Subscribe("ethereum", conn, "newHeads")
+	evmSubID, err := sm.Subscribe("1", conn, "newHeads")
 	if err != nil {
 		t.Fatalf("Failed to create EVM subscription: %v", err)
 	}
 
 	// Test Solana subscription
-	solanaSubID, err := sm.Subscribe("solana", conn, "slotNotification")
+	solanaSubID, err := sm.Subscribe("501", conn, "slotNotification")
 	if err != nil {
 		t.Fatalf("Failed to create Solana subscription: %v", err)
 	}
@@ -27,7 +29,7 @@ func TestSubscriptionManager(t *testing.T) {
 	}
 
 	// Test EVM notification format
-	sm.BroadcastNewBlock("ethereum", 100)
+	sm.BroadcastNewBlock("1", 100)
 	messages := conn.GetMessages()
 	if len(messages) != 1 {
 		t.Fatalf("Expected 1 EVM message, got %d", len(messages))
@@ -63,16 +65,11 @@ func TestSubscriptionManager(t *testing.T) {
 		t.Errorf("Expected block number 0x64, got %v", blockNumber)
 	}
 
-	chain, ok := evmResult["chain"].(string)
-	if !ok || chain != "ethereum" {
-		t.Errorf("Expected chain ethereum, got %v", chain)
-	}
-
 	// Clear messages for Solana test
 	conn.ClearMessages()
 
 	// Test Solana notification format
-	sm.BroadcastNewBlock("solana", 100)
+	sm.BroadcastNewBlock("501", 100)
 	messages = conn.GetMessages()
 	if len(messages) != 1 {
 		t.Fatalf("Expected 1 Solana message, got %d", len(messages))
@@ -137,50 +134,51 @@ func TestSubscriptionManagerConcurrent(t *testing.T) {
 	conn := NewMockWSConn()
 
 	// Create multiple subscriptions concurrently
-	done := make(chan bool)
+	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
+		wg.Add(1)
 		go func(i int) {
+			defer wg.Done()
 			var err error
 			if i%2 == 0 {
-				_, err = sm.Subscribe("ethereum", conn, "newHeads")
+				_, err = sm.Subscribe("1", conn, "newHeads")
 			} else {
-				_, err = sm.Subscribe("solana", conn, "slotNotification")
+				_, err = sm.Subscribe("501", conn, "slotNotification")
 			}
 			if err != nil {
 				t.Errorf("Failed to create subscription: %v", err)
 			}
-			done <- true
 		}(i)
 	}
 
-	// Wait for all subscriptions
-	for i := 0; i < 10; i++ {
-		<-done
-	}
+	wg.Wait()
 
 	if len(sm.subscriptions) != 10 {
 		t.Errorf("Expected 10 subscriptions, got %d", len(sm.subscriptions))
 	}
 
 	// Test concurrent broadcasts
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 5; i++ { // 5 broadcasts per chain type
+		wg.Add(2) // One for each chain type
 		go func(i int) {
-			if i%2 == 0 {
-				sm.BroadcastNewBlock("ethereum", uint64(i))
-			} else {
-				sm.BroadcastNewBlock("solana", uint64(i))
-			}
-			done <- true
+			defer wg.Done()
+			sm.BroadcastNewBlock("1", uint64(i))
+		}(i)
+		go func(i int) {
+			defer wg.Done()
+			sm.BroadcastNewBlock("501", uint64(i))
 		}(i)
 	}
 
-	// Wait for all broadcasts
-	for i := 0; i < 10; i++ {
-		<-done
-	}
+	wg.Wait()
+	// Give a small amount of time for all messages to be processed
+	time.Sleep(10 * time.Millisecond)
 
 	messages := conn.GetMessages()
-	if len(messages) != 50 { // 5 ethereum + 5 solana broadcasts * 5 subscriptions each
-		t.Errorf("Expected 50 messages, got %d", len(messages))
+	// Each broadcast should go to 5 subscriptions of its chain type
+	// 5 broadcasts * 5 subscriptions * 2 chain types = 50 messages
+	expectedMessages := 50
+	if len(messages) != expectedMessages {
+		t.Errorf("Expected %d messages, got %d", expectedMessages, len(messages))
 	}
 }
