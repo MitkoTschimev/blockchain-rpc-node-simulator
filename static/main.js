@@ -61,9 +61,7 @@ class RPCSimulator {
 
     async connect() {
         const chainId = document.getElementById('chainSelect').value;
-        const wsEndpoint = chainId === 'solana' ?
-            `ws://${window.location.host}/ws/solana` :
-            `ws://${window.location.host}/ws/evm/${chainId}`;
+        const wsEndpoint = `ws://${window.location.host}/ws/chain/${chainId}`;
 
         try {
             this.ws = new WebSocket(wsEndpoint);
@@ -375,11 +373,16 @@ class RPCSimulator {
         const chainNames = {
             '1': 'Ethereum',
             '10': 'Optimism',
+            '56': 'Binance',
+            '100': 'Gnosis',
+            '137': 'Polygon',
+            '250': 'Fantom',
+            '324': 'Zksync',
+            '8217': 'Kaia',
+            '8453': 'Base',
             '42161': 'Arbitrum',
             '43114': 'Avalanche',
-            '8453': 'Base',
-            '56': 'Binance',
-            'solana': 'Solana'
+            '59144': 'Linea'
         };
 
         // Sort chains by name
@@ -425,10 +428,16 @@ class RPCSimulator {
 const chainIdToName = {
     '1': 'ethereum',
     '10': 'optimism',
+    '56': 'binance',
+    '100': 'gnosis',
+    '137': 'polygon',
+    '250': 'fantom',
+    '324': 'zksync',
+    '8217': 'klaytn',
+    '8453': 'base',
     '42161': 'arbitrum',
     '43114': 'avalanche',
-    '8453': 'base',
-    '56': 'binance'
+    '59144': 'linea'
 };
 
 // Initialize the simulator

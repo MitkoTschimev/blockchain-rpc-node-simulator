@@ -4,7 +4,7 @@ A WebSocket-based RPC simulator that supports both EVM (Ethereum) and Solana blo
 
 ## Features
 
-- Dual protocol support (EVM and Solana)
+- Unified endpoint for all chains (EVM and Solana)
 - Real-time block/slot updates
 - Subscription-based updates
 - Controllable block progression
@@ -48,21 +48,34 @@ The server will start on port 8545 by default.
 
 ## Endpoints
 
-### WebSocket Endpoints
+### WebSocket Endpoint
 
-1. EVM Endpoint: `ws://localhost:8545/ws/evm`
-2. Solana Endpoint: `ws://localhost:8545/ws/solana`
+`ws://localhost:8545/ws/chain/{chainId}`
 
-### HTTP Endpoints
+Supported Chain IDs:
+- `1`: Ethereum Mainnet
+- `10`: Optimism
+- `56`: Binance Smart Chain
+- `100`: Gnosis Chain
+- `137`: Polygon
+- `250`: Fantom
+- `324`: zkSync Era
+- `8217`: Kaia
+- `8453`: Base
+- `42161`: Arbitrum One
+- `43114`: Avalanche
+- `59144`: Linea
+- `501`: Solana
 
-1. EVM Endpoint: `http://localhost:8545/evm`
-2. Solana Endpoint: `http://localhost:8545/solana`
+### HTTP Endpoint
 
-Both HTTP endpoints accept POST requests with JSON-RPC 2.0 formatted bodies.
+`http://localhost:8545/chain/{chainId}`
+
+The HTTP endpoint accepts POST requests with JSON-RPC 2.0 formatted bodies.
 
 ## Supported Methods
 
-### EVM Methods
+### EVM Methods (Chain IDs: 1, 10, 56, 100, 137, 250, 324, 8217, 8453, 42161, 43114, 59144)
 
 1. WebSocket and HTTP:
    - `eth_chainId` - Get the current chain ID
@@ -77,17 +90,17 @@ Both HTTP endpoints accept POST requests with JSON-RPC 2.0 formatted bodies.
 Example HTTP requests:
 ```bash
 # Get health status
-curl -X POST http://localhost:8545/evm \
+curl -X POST http://localhost:8545/chain/1 \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"getHealth"}'
 
 # Get chain ID
-curl -X POST http://localhost:8545/evm \
+curl -X POST http://localhost:8545/chain/1 \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId"}'
 ```
 
-### Solana Methods
+### Solana Methods (Chain ID: 501)
 
 1. WebSocket and HTTP:
    - `getSlot` - Get current slot number
@@ -101,12 +114,12 @@ curl -X POST http://localhost:8545/evm \
 Example HTTP requests:
 ```bash
 # Get health status
-curl -X POST http://localhost:8545/solana \
+curl -X POST http://localhost:8545/chain/501 \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"getHealth"}'
 
 # Get current slot
-curl -X POST http://localhost:8545/solana \
+curl -X POST http://localhost:8545/chain/501 \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"getSlot"}'
 ```
@@ -189,29 +202,32 @@ npm install -g wscat
 
 2. Connect to endpoints:
 ```bash
-# EVM
-wscat -c ws://localhost:8545/ws/evm
+# Ethereum
+wscat -c ws://localhost:8545/ws/chain/1
+
+# Optimism
+wscat -c ws://localhost:8545/ws/chain/10
 
 # Solana
-wscat -c ws://localhost:8545/ws/solana
+wscat -c ws://localhost:8545/ws/chain/501
 ```
 
 ### Using curl for HTTP Testing
 
 1. Test EVM endpoints:
 ```bash
-# Health check
-curl -X POST http://localhost:8545/evm \
+# Health check (Ethereum)
+curl -X POST http://localhost:8545/chain/1 \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"getHealth"}'
 
-# Chain ID
-curl -X POST http://localhost:8545/evm \
+# Chain ID (Optimism)
+curl -X POST http://localhost:8545/chain/10 \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId"}'
 
-# Block number
-curl -X POST http://localhost:8545/evm \
+# Block number (Arbitrum)
+curl -X POST http://localhost:8545/chain/42161 \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber"}'
 ```
@@ -219,17 +235,17 @@ curl -X POST http://localhost:8545/evm \
 2. Test Solana endpoints:
 ```bash
 # Health check
-curl -X POST http://localhost:8545/solana \
+curl -X POST http://localhost:8545/chain/501 \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"getHealth"}'
 
 # Get slot
-curl -X POST http://localhost:8545/solana \
+curl -X POST http://localhost:8545/chain/501 \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"getSlot"}'
 
 # Get version
-curl -X POST http://localhost:8545/solana \
+curl -X POST http://localhost:8545/chain/501 \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"getVersion"}'
 ```
@@ -389,7 +405,7 @@ npm install -g wscat
 
 1. Connect to EVM endpoint:
 ```bash
-wscat -c ws://localhost:8545/ws/evm
+wscat -c ws://localhost:8545/ws/chain/1
 ```
 
 2. Get chain ID:
@@ -421,7 +437,7 @@ wscat -c ws://localhost:8545/ws/evm
 
 1. Connect to Solana endpoint:
 ```bash
-wscat -c ws://localhost:8545/ws/solana
+wscat -c ws://localhost:8545/ws/chain/501
 ```
 
 2. Get current slot:
@@ -480,11 +496,11 @@ curl -X POST http://localhost:8545/control/block/resume
 1. Test subscription and block updates:
 ```bash
 # Terminal 1 - Connect and subscribe to EVM updates
-wscat -c ws://localhost:8545/ws/evm
+wscat -c ws://localhost:8545/ws/chain/1
 > {"jsonrpc": "2.0", "method": "eth_subscribe", "params": ["newHeads"], "id": 1}
 
 # Terminal 2 - Connect and subscribe to Solana updates
-wscat -c ws://localhost:8545/ws/solana
+wscat -c ws://localhost:8545/ws/chain/501
 > {"jsonrpc": "2.0", "method": "slotSubscribe", "params": [], "id": 1}
 
 # Terminal 3 - Control block progression
@@ -494,7 +510,7 @@ curl -X POST http://localhost:8545/control/block/set -H "Content-Type: applicati
 2. Test connection dropping:
 ```bash
 # Terminal 1 - Subscribe to updates
-wscat -c ws://localhost:8545/ws/evm
+wscat -c ws://localhost:8545/ws/chain/1
 > {"jsonrpc": "2.0", "method": "eth_subscribe", "params": ["newHeads"], "id": 1}
 
 # Terminal 2 - Drop connections after 5 seconds
@@ -504,7 +520,7 @@ sleep 5 && curl -X POST http://localhost:8545/control/connections/drop
 3. Test block pausing:
 ```bash
 # Terminal 1 - Subscribe to updates
-wscat -c ws://localhost:8545/ws/evm
+wscat -c ws://localhost:8545/ws/chain/1
 > {"jsonrpc": "2.0", "method": "eth_subscribe", "params": ["newHeads"], "id": 1}
 
 # Terminal 2 - Control block progression

@@ -27,10 +27,17 @@ var (
 	chainIdToName = map[string]string{
 		"1":     "ethereum",  // Ethereum Mainnet
 		"10":    "optimism",  // Optimism
-		"42161": "arbitrum",  // Arbitrum
-		"43114": "avalanche", // Avalanche
-		"8453":  "base",      // Base
 		"56":    "binance",   // Binance Smart Chain
+		"100":   "gnosis",    // Gnosis Chain
+		"137":   "polygon",   // Polygon
+		"250":   "fantom",    // Fantom
+		"324":   "zksync",    // zkSync Era
+		"8217":  "klaytn",    // Klaytn
+		"8453":  "base",      // Base
+		"42161": "arbitrum",  // Arbitrum One
+		"43114": "avalanche", // Avalanche
+		"59144": "linea",     // Linea
+		"501":   "solana",    // Solana
 	}
 )
 
@@ -76,13 +83,9 @@ func main() {
 	fs := http.FileServer(http.Dir("static"))
 	mux.Handle("/", fs)
 
-	// WebSocket endpoints
-	mux.HandleFunc("/ws/evm/", handleEVMWebSocketWithChain)
-	mux.HandleFunc("/ws/solana", handleSolanaWebSocket)
-
-	// HTTP endpoints with chain support
-	mux.HandleFunc("/evm/", handleEVMHTTPWithChain) // Note the trailing slash
-	mux.HandleFunc("/solana", handleSolanaHTTP)
+	// Unified WebSocket and HTTP endpoints
+	mux.HandleFunc("/ws/chain/", handleChainWebSocket)
+	mux.HandleFunc("/chain/", handleChainHTTP)
 
 	// SSE endpoints
 	mux.HandleFunc("/sse/connections", handleConnectionsSSE)
@@ -99,9 +102,9 @@ func main() {
 
 	log.Printf("Starting RPC simulator on port %s", port)
 	log.Printf("Web UI: http://localhost%s", port)
-	log.Printf("EVM endpoints:")
+	log.Printf("Chain endpoints:")
 	for chainId, chainName := range chainIdToName {
-		log.Printf("  %s: ws://localhost%s/ws/evm/%s", chainName, port, chainId)
+		log.Printf("  %s: ws://localhost%s/ws/chain/%s", chainName, port, chainId)
 	}
 	log.Printf("Solana endpoint: ws://localhost%s/ws/solana", port)
 	log.Printf("Control endpoints:")
@@ -196,17 +199,17 @@ func handleConnectionsSSE(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleEVMWebSocketWithChain handles WebSocket connections for specific EVM chains
-func handleEVMWebSocketWithChain(w http.ResponseWriter, r *http.Request) {
+// handleChainWebSocket handles WebSocket connections for all chains
+func handleChainWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Extract chainId from URL path
-	chainId := r.URL.Path[len("/ws/evm/"):]
+	chainId := r.URL.Path[len("/ws/chain/"):]
 	chainName, exists := chainIdToName[chainId]
 	if !exists {
 		http.Error(w, "Invalid chain ID", http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("EVM client connected to chain %s (chainId: %s)", chainName, chainId)
+	log.Printf("Client connected to chain %s (chainId: %s)", chainName, chainId)
 	if IsBlocked() {
 		http.Error(w, "Server is temporarily unavailable", http.StatusServiceUnavailable)
 		return
@@ -227,7 +230,7 @@ func handleEVMWebSocketWithChain(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		connTracker.RemoveConnection(chainId)
 		count := subManager.CleanupConnection(conn)
-		log.Printf("Cleaned up %d subscriptions for disconnected EVM client (chain: %s)", count, chainName)
+		log.Printf("Cleaned up %d subscriptions for disconnected client (chain: %s)", count, chainName)
 		conn.Close()
 	}()
 
@@ -235,12 +238,18 @@ func handleEVMWebSocketWithChain(w http.ResponseWriter, r *http.Request) {
 		messageType, message, err := wsConn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("EVM client disconnected unexpectedly from chain %s: %v", chainName, err)
+				log.Printf("Client disconnected unexpectedly from chain %s: %v", chainName, err)
 			}
 			break
 		}
 
-		response, err := handleEVMRequest(message, conn, chainId)
+		var response []byte
+		if chainId == "501" { // Solana
+			response, err = handleSolanaRequest(message, conn)
+		} else { // EVM chains
+			response, err = handleEVMRequest(message, conn, chainId)
+		}
+
 		if err != nil {
 			log.Printf("Handler error for chain %s: %v", chainName, err)
 			break
@@ -253,61 +262,16 @@ func handleEVMWebSocketWithChain(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleSolanaWebSocket(w http.ResponseWriter, r *http.Request) {
-	if IsBlocked() {
-		http.Error(w, "Server is temporarily unavailable", http.StatusServiceUnavailable)
-		return
-	}
-
-	wsConn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println("Upgrade error:", err)
-		return
-	}
-	conn := &wsConnWrapper{
-		Conn: wsConn,
-	}
-
-	// Track the connection
-	connTracker.AddConnection("solana")
-	defer func() {
-		connTracker.RemoveConnection("solana")
-		count := subManager.CleanupConnection(conn)
-		log.Printf("Cleaned up %d subscriptions for disconnected Solana client", count)
-		conn.Close()
-	}()
-
-	for {
-		messageType, message, err := wsConn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("Solana client disconnected unexpectedly: %v", err)
-			}
-			break
-		}
-
-		response, err := handleSolanaRequest(message, conn)
-		if err != nil {
-			log.Println("Handler error:", err)
-			break
-		}
-
-		if err := conn.WriteMessage(messageType, response); err != nil {
-			log.Println("Write error:", err)
-			break
-		}
-	}
-}
-
-func handleEVMHTTPWithChain(w http.ResponseWriter, r *http.Request) {
+// handleChainHTTP handles HTTP requests for all chains
+func handleChainHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	// Extract chainId from URL path
-	chainId := r.URL.Path[len("/evm/"):]
-	_, exists := chainIdToName[chainId]
+	chainId := r.URL.Path[len("/chain/"):]
+	chainName, exists := chainIdToName[chainId]
 	if !exists {
 		http.Error(w, "Invalid chain ID", http.StatusBadRequest)
 		return
@@ -325,45 +289,19 @@ func handleEVMHTTPWithChain(w http.ResponseWriter, r *http.Request) {
 	// Only log non-health check messages
 	var request JSONRPCRequest
 	if err := json.Unmarshal(message, &request); err == nil && request.Method != "getHealth" {
-		log.Printf("Incoming EVM HTTP message: %s", string(message))
+		log.Printf("Incoming HTTP message for chain %s: %s", chainName, string(message))
 	}
 
 	// Create a mock connection for the request
 	mockConn := NewMockWSConn()
-	response, err := handleEVMRequest(message, mockConn, chainId)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+
+	var response []byte
+	if chainId == "501" { // Solana
+		response, err = handleSolanaRequest(message, mockConn)
+	} else { // EVM chains
+		response, err = handleEVMRequest(message, mockConn, chainId)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(response)
-}
-
-func handleSolanaHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var message []byte
-	var err error
-	message, err = io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Failed to read request body", http.StatusBadRequest)
-		return
-	}
-	defer r.Body.Close()
-
-	// Only log non-health check messages
-	var request JSONRPCRequest
-	if err := json.Unmarshal(message, &request); err == nil && request.Method != "getHealth" {
-		log.Printf("Incoming Solana HTTP message: %s", string(message))
-	}
-
-	// Create a mock connection for the request
-	mockConn := NewMockWSConn()
-	response, err := handleSolanaRequest(message, mockConn)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
