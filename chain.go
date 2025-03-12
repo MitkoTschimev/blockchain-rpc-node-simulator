@@ -2,8 +2,11 @@ package main
 
 import (
 	"log"
+	"os"
 	"sync/atomic"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Chain interface defines methods that both EVM and Solana chains must implement
@@ -16,92 +19,59 @@ type Chain interface {
 }
 
 type EVMChain struct {
-	Name            string
-	ChainID         string
+	Name            string `yaml:"name"`
+	ChainID         string `yaml:"chain_id"`
 	BlockNumber     uint64
-	BlockInterval   time.Duration
-	BlockIncrement  uint32 // 0 = normal, 1 = paused
-	BlockInterrupt  uint32 // 0 = normal, 1 = interrupted
+	BlockInterval   time.Duration `yaml:"block_interval"`
+	BlockIncrement  uint32        // 0 = normal, 1 = paused
+	BlockInterrupt  uint32        // 0 = normal, 1 = interrupted
 	ResponseTimeout time.Duration
 }
 
 type SolanaNode struct {
 	SlotNumber      uint64
-	SlotInterval    time.Duration
-	SlotIncrement   uint32 // 0 = normal, 1 = paused
-	BlockInterrupt  uint32 // 0 = normal, 1 = interrupted
+	SlotInterval    time.Duration `yaml:"slot_interval"`
+	SlotIncrement   uint32        // 0 = normal, 1 = paused
+	BlockInterrupt  uint32        // 0 = normal, 1 = interrupted
 	ResponseTimeout time.Duration
-	Version         string
-	FeatureSet      uint32
+	Version         string `yaml:"version"`
+	FeatureSet      uint32 `yaml:"feature_set"`
 }
 
-var supportedChains = map[string]*EVMChain{
-	"ethereum": {
-		Name:          "ethereum",
-		ChainID:       "0x1", // 1 Mainnet
-		BlockInterval: 12 * time.Second,
-	},
-	"optimism": {
-		Name:          "optimism",
-		ChainID:       "0xa", // 10
-		BlockInterval: 2 * time.Second,
-	},
-	"binance": {
-		Name:          "binance",
-		ChainID:       "0x38", // 56
-		BlockInterval: 3 * time.Second,
-	},
-	"gnosis": {
-		Name:          "gnosis",
-		ChainID:       "0x64", // 100
-		BlockInterval: 5 * time.Second,
-	},
-	"polygon": {
-		Name:          "polygon",
-		ChainID:       "0x89", // 137
-		BlockInterval: 2 * time.Second,
-	},
-	"fantom": {
-		Name:          "fantom",
-		ChainID:       "0xfa", // 250
-		BlockInterval: 1 * time.Second,
-	},
-	"zksync": {
-		Name:          "zksync",
-		ChainID:       "0x144", // 324
-		BlockInterval: 1 * time.Second,
-	},
-	"klaytn": {
-		Name:          "klaytn",
-		ChainID:       "0x2019", // 8217
-		BlockInterval: 1 * time.Second,
-	},
-	"base": {
-		Name:          "base",
-		ChainID:       "0x2105", // 8453
-		BlockInterval: 2 * time.Second,
-	},
-	"arbitrum": {
-		Name:          "arbitrum",
-		ChainID:       "0xa4b1", // 42161
-		BlockInterval: 250 * time.Millisecond,
-	},
-	"avalanche": {
-		Name:          "avalanche",
-		ChainID:       "0xa86a", // 43114
-		BlockInterval: 2 * time.Second,
-	},
-	"linea": {
-		Name:          "linea",
-		ChainID:       "0xe708", // 59144
-		BlockInterval: 12 * time.Second,
-	},
+type ChainConfig struct {
+	EVMChains map[string]*EVMChain `yaml:"evm_chains"`
+	Solana    *SolanaNode          `yaml:"solana"`
 }
 
-var solanaNode = &SolanaNode{
-	SlotInterval: 400 * time.Millisecond,
-	Version:      "1.14.10",
-	FeatureSet:   1,
+var (
+	supportedChains map[string]*EVMChain
+	solanaNode      *SolanaNode
+)
+
+func init() {
+	// Load chain configurations from YAML file
+	data, err := os.ReadFile("chains.yaml")
+	if err != nil {
+		log.Fatalf("Failed to read chains.yaml: %v", err)
+	}
+
+	var config ChainConfig
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		log.Fatalf("Failed to parse chains.yaml: %v", err)
+	}
+
+	// Initialize global variables
+	supportedChains = config.EVMChains
+	solanaNode = config.Solana
+
+	// Initialize block numbers for each chain
+	for _, chain := range supportedChains {
+		chain.BlockNumber = 1
+		chain.BlockIncrement = 0
+	}
+	// Initialize Solana slot number
+	solanaNode.SlotNumber = 1
+	solanaNode.SlotIncrement = 0
 }
 
 // EVMChain methods
@@ -165,5 +135,5 @@ func (n *SolanaNode) TriggerReorg(blocks int) {
 	atomic.StoreUint64(&n.SlotNumber, currentSlot-uint64(blocks))
 
 	// Broadcast the reorg through the subscription manager
-	subManager.BroadcastNewBlock("solana", currentSlot-uint64(blocks))
+	subManager.BroadcastNewBlock("501", currentSlot-uint64(blocks))
 }

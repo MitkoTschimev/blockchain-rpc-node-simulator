@@ -1,0 +1,54 @@
+evm_chains:
+  ethereum:
+    name: ethereum
+    chain_id: "0x1"  # 1 Mainnet
+    block_interval: 12s
+  optimism:
+    name: optimism
+    chain_id: "0xa"  # 10
+    block_interval: 2s
+  binance:
+    name: binance
+    chain_id: "0x38"  # 56
+    block_interval: 3s
+  gnosis:
+    name: gnosis
+    chain_id: "0x64"  # 100
+    block_interval: 5s
+  polygon:
+    name: polygon
+    chain_id: "0x89"  # 137
+    block_interval: 2s
+  fantom:
+    name: fantom
+    chain_id: "0xfa"  # 250
+    block_interval: 1s
+  zksync:
+    name: zksync
+    chain_id: "0x144"  # 324
+    block_interval: 1s
+  klaytn:
+    name: klaytn
+    chain_id: "0x2019"  # 8217
+    block_interval: 1s
+  base:
+    name: base
+    chain_id: "0x2105"  # 8453
+    block_interval: 2s
+  arbitrum:
+    name: arbitrum
+    chain_id: "0xa4b1"  # 42161
+    block_interval: 250ms
+  avalanche:
+    name: avalanche
+    chain_id: "0xa86a"  # 43114
+    block_interval: 2s
+  linea:
+    name: linea
+    chain_id: "0xe708"  # 59144
+    block_interval: 12s
+
+solana:
+  slot_interval: 400ms
+  version: "1.14.10"
+  feature_set: 1 
