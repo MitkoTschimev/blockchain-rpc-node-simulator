@@ -2,53 +2,53 @@ evm_chains:
   ethereum:
     name: ethereum
     chain_id: "0x1"  # 1 Mainnet
-    block_interval: 12s
+    block_interval: 12.04s  # From Chainspect: 12.04s
   optimism:
     name: optimism
     chain_id: "0xa"  # 10
-    block_interval: 2s
+    block_interval: 2s      # From Chainspect: 2s
   binance:
     name: binance
     chain_id: "0x38"  # 56
-    block_interval: 3s
+    block_interval: 3s      # From Chainspect: 3s for BNB Chain
   gnosis:
     name: gnosis
     chain_id: "0x64"  # 100
-    block_interval: 5s
+    block_interval: 5s      # Default since not in top chains
   polygon:
     name: polygon
     chain_id: "0x89"  # 137
-    block_interval: 2s
+    block_interval: 2.13s   # From Chainspect: 2.13s
   fantom:
     name: fantom
     chain_id: "0xfa"  # 250
-    block_interval: 1s
+    block_interval: 1s      # Default since not in top chains
   zksync:
     name: zksync
     chain_id: "0x144"  # 324
-    block_interval: 1s
+    block_interval: 1s      # Default since not in top chains
   klaytn:
     name: klaytn
     chain_id: "0x2019"  # 8217
-    block_interval: 1s
+    block_interval: 1.01s   # From Chainspect (Kaia): 1.01s
   base:
     name: base
     chain_id: "0x2105"  # 8453
-    block_interval: 2s
+    block_interval: 2s      # From Chainspect: 2s
   arbitrum:
     name: arbitrum
     chain_id: "0xa4b1"  # 42161
-    block_interval: 250ms
+    block_interval: 250ms   # From Chainspect: 0.25s
   avalanche:
     name: avalanche
     chain_id: "0xa86a"  # 43114
-    block_interval: 2s
+    block_interval: 1.61s   # From Chainspect: 1.61s
   linea:
     name: linea
     chain_id: "0xe708"  # 59144
-    block_interval: 12s
+    block_interval: 2s      # Default since not in top chains
 
 solana:
-  slot_interval: 400ms
+  slot_interval: 400ms     # From Chainspect: 0.4s
   version: "1.14.10"
   feature_set: 1 
