@@ -74,30 +74,33 @@ func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, erro
 			return createErrorResponse(-32601, "Unsupported subscription type", nil, request.ID)
 		}
 
-		subID, err := subManager.Subscribe(chainName, conn, "newHeads")
+		subID, err := subManager.Subscribe(chainId, conn, "newHeads")
 		if err != nil {
 			return createErrorResponse(-32603, err.Error(), nil, request.ID)
 		}
 
-		result = fmt.Sprintf("0x%x", subID) // Return subscription ID as hex string for EVM
+		result = fmt.Sprintf("%d", subID) // Return subscription ID as decimal string for consistency
 
 	case "eth_unsubscribe":
 		if len(request.Params) < 1 {
 			return createErrorResponse(-32602, "Invalid params", nil, request.ID)
 		}
 
-		// Handle hex string subscription IDs
+		// Handle both decimal and hex string subscription IDs
 		var subscriptionID uint64
 		switch v := request.Params[0].(type) {
 		case string:
-			// Remove "0x" prefix if present
-			hexStr := v
-			if len(hexStr) > 2 && hexStr[:2] == "0x" {
-				hexStr = hexStr[2:]
-			}
-			subscriptionID, err = strconv.ParseUint(hexStr, 16, 64)
+			// Try parsing as decimal first
+			subscriptionID, err = strconv.ParseUint(v, 10, 64)
 			if err != nil {
-				return createErrorResponse(-32602, "Invalid subscription ID", nil, request.ID)
+				// If decimal parsing fails, try hex
+				if len(v) > 2 && v[:2] == "0x" {
+					v = v[2:]
+				}
+				subscriptionID, err = strconv.ParseUint(v, 16, 64)
+				if err != nil {
+					return createErrorResponse(-32602, "Invalid subscription ID", nil, request.ID)
+				}
 			}
 		case float64:
 			subscriptionID = uint64(v)

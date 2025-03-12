@@ -1,6 +1,8 @@
 package main
 
 import (
+	"sync"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -16,6 +18,7 @@ type WSConn interface {
 type MockWSConn struct {
 	messages [][]byte
 	closed   bool
+	mu       sync.RWMutex
 }
 
 func NewMockWSConn() *MockWSConn {
@@ -25,6 +28,9 @@ func NewMockWSConn() *MockWSConn {
 }
 
 func (m *MockWSConn) WriteMessage(messageType int, data []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if m.closed {
 		return websocket.ErrCloseSent
 	}
@@ -33,18 +39,37 @@ func (m *MockWSConn) WriteMessage(messageType int, data []byte) error {
 }
 
 func (m *MockWSConn) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	m.closed = true
 	return nil
 }
 
 func (m *MockWSConn) GetMessages() [][]byte {
-	return m.messages
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Return a copy to prevent race conditions
+	messages := make([][]byte, len(m.messages))
+	for i, msg := range m.messages {
+		msgCopy := make([]byte, len(msg))
+		copy(msgCopy, msg)
+		messages[i] = msgCopy
+	}
+	return messages
 }
 
 func (m *MockWSConn) IsClosed() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	return m.closed
 }
 
 func (m *MockWSConn) ClearMessages() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	m.messages = nil
 }
