@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -68,6 +69,21 @@ func main() {
 				if atomic.LoadUint32(&c.BlockIncrement) == 0 {
 					newBlock := atomic.AddUint64(&c.BlockNumber, 1)
 					subManager.BroadcastNewBlock(chainId, newBlock)
+
+					// Generate and broadcast some sample log events
+					// In a real implementation, you would generate logs based on actual contract events
+					logEvent := LogEvent{
+						Address:     "0x" + hex.EncodeToString(make([]byte, 20)),
+						Topics:      []string{"0x" + hex.EncodeToString(make([]byte, 32))},
+						Data:        "0x" + hex.EncodeToString(make([]byte, 32)),
+						BlockNumber: newBlock,
+						TxHash:      "0x" + hex.EncodeToString(make([]byte, 32)),
+						TxIndex:     0,
+						BlockHash:   "0x" + hex.EncodeToString(make([]byte, 32)),
+						LogIndex:    0,
+						Removed:     false,
+					}
+					subManager.BroadcastNewLog(chainId, logEvent)
 				}
 			}
 		}(chainName, chain)

@@ -70,11 +70,36 @@ func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, erro
 			return createErrorResponse(-32602, "Invalid subscription type", nil, request.ID)
 		}
 
-		if subscriptionType != "newHeads" {
-			return createErrorResponse(-32601, "Unsupported subscription type", nil, request.ID)
+		var subType string
+		switch subscriptionType {
+		case "newHeads":
+			subType = "newHeads"
+			// Validate includeTransactions parameter if provided
+			if len(request.Params) > 1 {
+				options, ok := request.Params[1].(map[string]interface{})
+				if !ok {
+					return createErrorResponse(-32602, "Invalid subscription options", nil, request.ID)
+				}
+				includeTx, ok := options["includeTransactions"].(bool)
+				if ok && includeTx {
+					// Store the preference in the subscription
+					subType = "newHeadsWithTx"
+				}
+			}
+		case "logs":
+			subType = "logs"
+			// Validate log filter parameters if provided
+			if len(request.Params) > 1 {
+				_, ok = request.Params[1].(map[string]interface{})
+				if !ok {
+					return createErrorResponse(-32602, "Invalid log filter parameters", nil, request.ID)
+				}
+			}
+		default:
+			return createErrorResponse(-32601, fmt.Sprintf("Unsupported subscription type: %s", subscriptionType), nil, request.ID)
 		}
 
-		subID, err := subManager.Subscribe(chainId, conn, "newHeads")
+		subID, err := subManager.Subscribe(chainId, conn, subType)
 		if err != nil {
 			return createErrorResponse(-32603, err.Error(), nil, request.ID)
 		}
