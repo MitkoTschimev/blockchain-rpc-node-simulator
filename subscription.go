@@ -53,7 +53,7 @@ func (sm *SubscriptionManager) Unsubscribe(id uint64) error {
 	defer sm.mu.Unlock()
 
 	log.Printf("Looking for subscription with ID: %d", id)
-	log.Printf("Current subscriptions: %v", sm.subscriptions)
+	log.Printf("Current subscriptions: %d", len(sm.subscriptions))
 
 	sub, exists := sm.subscriptions[id]
 	if !exists {
@@ -193,7 +193,7 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 		}
 
 		if sub.Method == "newHeadsWithTx" {
-			log.Printf("Broadcasting block notification: %v", notification)
+			log.Printf("Broadcasting block notification")
 		}
 		if err := sub.Conn.WriteMessage(websocket.TextMessage, data); err != nil {
 			// If we can't write to the connection, remove the subscription

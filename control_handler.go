@@ -47,6 +47,7 @@ func handleControlEndpoints(mux *http.ServeMux) {
 	mux.HandleFunc("/control/timeout/set", handleSetTimeout)
 	mux.HandleFunc("/control/timeout/clear", handleClearTimeout)
 	mux.HandleFunc("/control/chain/reorg", handleChainReorg)
+	mux.HandleFunc("/control/latency", handleSetLatency)
 }
 
 func jsonResponse(w http.ResponseWriter, status int, response interface{}) {
@@ -567,4 +568,59 @@ func getChain(name string) Chain {
 		return chain
 	}
 	return nil
+}
+
+func handleSetLatency(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		Chain   string `json:"chain"`
+		Latency int64  `json:"latency_ms"` // Latency in milliseconds
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Convert chain name to chain ID if a name was provided
+	chainId := request.Chain
+	for id, name := range chainIdToName {
+		if name == request.Chain {
+			chainId = id
+			break
+		}
+	}
+
+	// Set latency for the specified chain
+	latencyDuration := time.Duration(request.Latency) * time.Millisecond
+	if chainId == "501" {
+		solanaNode.Latency = latencyDuration
+		log.Printf("Set Solana latency to %dms", request.Latency)
+	} else if chain, exists := supportedChains[chainIdToName[chainId]]; exists {
+		chain.Latency = latencyDuration
+		log.Printf("Set %s latency to %dms", chainIdToName[chainId], request.Latency)
+	} else {
+		http.Error(w, fmt.Sprintf("Unknown chain: %s", request.Chain), http.StatusBadRequest)
+		return
+	}
+
+	// Save the updated configuration to chains.yaml
+	config := ChainConfig{
+		EVMChains: supportedChains,
+		Solana:    solanaNode,
+	}
+	if err := SaveChainConfig("chains.yaml", &config); err != nil {
+		log.Printf("Warning: Failed to save chain configuration: %v", err)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "ok",
+		"chain":   request.Chain,
+		"latency": fmt.Sprintf("%dms", request.Latency),
+	})
 }

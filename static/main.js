@@ -21,6 +21,9 @@ class RPCSimulator {
         document.getElementById('clearTimeoutBtn').addEventListener('click', () => this.clearTimeout());
         document.getElementById('interruptBlocksBtn').addEventListener('click', () => this.interruptBlocks());
         document.getElementById('triggerReorgBtn').addEventListener('click', () => this.triggerReorg());
+        
+        // Add latency control event listener
+        document.getElementById('setLatencyBtn').addEventListener('click', () => this.setLatency());
     }
 
     log(message, type = 'info') {
@@ -270,6 +273,22 @@ class RPCSimulator {
         }
     }
 
+    async setLatency() {
+        const latency = document.getElementById('latencyMs').value;
+        const chainId = document.getElementById('chainSelect').value;
+        
+        const response = await this.sendControlRequest('/control/chain/latency', {
+            chain: chainId === '501' ? 'solana' : chainIdToName[chainId],
+            latency_ms: parseInt(latency)
+        });
+
+        if (response.ok) {
+            this.log(`Latency set to ${latency}ms for ${chainIdToName[chainId]}`);
+        } else {
+            this.log(`Failed to set latency: ${response.statusText}`, 'error');
+        }
+    }
+
     async sendControlRequest(endpoint, data) {
         try {
             return await fetch(endpoint, {
@@ -433,7 +452,7 @@ const chainIdToName = {
     '137': 'polygon',
     '250': 'fantom',
     '324': 'zksync',
-    '8217': 'klaytn',
+    '8217': 'kaia',
     '8453': 'base',
     '42161': 'arbitrum',
     '43114': 'avalanche',

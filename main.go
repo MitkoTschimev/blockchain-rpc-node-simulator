@@ -33,7 +33,7 @@ var (
 		"137":   "polygon",   // Polygon
 		"250":   "fantom",    // Fantom
 		"324":   "zksync",    // zkSync Era
-		"8217":  "klaytn",    // Klaytn
+		"8217":  "kaia",    // kaia
 		"8453":  "base",      // Base
 		"42161": "arbitrum",  // Arbitrum One
 		"43114": "avalanche", // Avalanche

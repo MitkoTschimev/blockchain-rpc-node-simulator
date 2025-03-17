@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"sync/atomic"
@@ -26,6 +27,7 @@ type EVMChain struct {
 	BlockIncrement  uint32        // 0 = normal, 1 = paused
 	BlockInterrupt  uint32        // 0 = normal, 1 = interrupted
 	ResponseTimeout time.Duration
+	Latency         time.Duration `yaml:"latency"`
 }
 
 type SolanaNode struct {
@@ -34,8 +36,9 @@ type SolanaNode struct {
 	SlotIncrement   uint32        // 0 = normal, 1 = paused
 	BlockInterrupt  uint32        // 0 = normal, 1 = interrupted
 	ResponseTimeout time.Duration
-	Version         string `yaml:"version"`
-	FeatureSet      uint32 `yaml:"feature_set"`
+	Version         string        `yaml:"version"`
+	FeatureSet      uint32        `yaml:"feature_set"`
+	Latency         time.Duration `yaml:"latency"`
 }
 
 type ChainConfig struct {
@@ -136,4 +139,33 @@ func (n *SolanaNode) TriggerReorg(blocks int) {
 
 	// Broadcast the reorg through the subscription manager
 	subManager.BroadcastNewBlock("501", currentSlot-uint64(blocks))
+}
+
+// SaveChainConfig saves the chain configuration to a YAML file
+func SaveChainConfig(filename string, config *ChainConfig) error {
+	data, err := yaml.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %v", err)
+	}
+
+	if err := os.WriteFile(filename, data, 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %v", err)
+	}
+
+	return nil
+}
+
+// LoadChainConfig loads the chain configuration from a YAML file
+func LoadChainConfig(filename string) (*ChainConfig, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %v", err)
+	}
+
+	var config ChainConfig
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config: %v", err)
+	}
+
+	return &config, nil
 }

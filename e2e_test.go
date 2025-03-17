@@ -94,7 +94,7 @@ func TestE2EChainConnections(t *testing.T) {
 			BlockInterval:  100 * time.Millisecond,
 			BlockIncrement: 0,
 		},
-		"klaytn": {
+		"kaia": {
 			BlockNumber:    0,
 			BlockInterval:  100 * time.Millisecond,
 			BlockIncrement: 0,

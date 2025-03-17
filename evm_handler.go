@@ -6,6 +6,7 @@ import (
 	"log"
 	"strconv"
 	"sync/atomic"
+	"time"
 )
 
 func init() {
@@ -20,6 +21,22 @@ func init() {
 }
 
 func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, error) {
+	// Get chain configuration
+	chainName, exists := chainIdToName[chainId]
+	if !exists {
+		return createErrorResponse(-32602, fmt.Sprintf("Unsupported chain ID: %s", chainId), nil, nil)
+	}
+
+	chain, ok := supportedChains[chainName]
+	if !ok {
+		return createErrorResponse(-32602, fmt.Sprintf("Unsupported chain: %s", chainName), nil, nil)
+	}
+
+	// Simulate network latency if configured
+	if chain.Latency > 0 {
+		time.Sleep(chain.Latency)
+	}
+
 	var request JSONRPCRequest
 	if err := json.Unmarshal(message, &request); err != nil {
 		log.Printf("Error unmarshalling message: %s", err)
@@ -35,16 +52,6 @@ func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, erro
 	// Validate JSON-RPC version
 	if request.JsonRPC != "2.0" {
 		return createErrorResponse(-32600, "Invalid Request", nil, request.ID)
-	}
-
-	chainName, exists := chainIdToName[chainId]
-	if !exists {
-		return createErrorResponse(-32602, fmt.Sprintf("Unsupported chain ID: %s", chainId), nil, request.ID)
-	}
-
-	chain, ok := supportedChains[chainName]
-	if !ok {
-		return createErrorResponse(-32602, fmt.Sprintf("Unsupported chain: %s", chainName), nil, request.ID)
 	}
 
 	var result interface{}

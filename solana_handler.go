@@ -5,11 +5,19 @@ import (
 	"log"
 	"strconv"
 	"sync/atomic"
+	"time"
 )
 
 func handleSolanaRequest(message []byte, conn WSConn) ([]byte, error) {
+	// Simulate network latency if configured
+	if solanaNode.Latency > 0 {
+		time.Sleep(solanaNode.Latency)
+	}
+
 	var request JSONRPCRequest
 	if err := json.Unmarshal(message, &request); err != nil {
+		log.Printf("Error unmarshalling message: %s", err)
+		log.Printf("Message: %s", string(message))
 		return createErrorResponse(-32700, "Parse error", nil, nil)
 	}
 
