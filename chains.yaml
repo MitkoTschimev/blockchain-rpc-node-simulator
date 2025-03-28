@@ -16,7 +16,7 @@ evm_chains:
     latency: 0s
   gnosis:
     name: gnosis
-    chain_id: "0x64"  # 100
+    chain_id: "0x64"  # 100clear
     block_interval: 5s      # Default since not in top chains
     latency: 0s
   polygon:

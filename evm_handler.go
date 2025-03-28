@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -14,6 +15,8 @@ func init() {
 	for _, chain := range supportedChains {
 		chain.BlockNumber = 1
 		chain.BlockIncrement = 0
+		// Set default error probability to 0
+		chain.ErrorProbability = 0
 	}
 	// Initialize Solana slot number
 	solanaNode.SlotNumber = 1
@@ -52,6 +55,11 @@ func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, erro
 	// Validate JSON-RPC version
 	if request.JsonRPC != "2.0" {
 		return createErrorResponse(-32600, "Invalid Request", nil, request.ID)
+	}
+
+	// Randomly return header not found error based on probability
+	if chain.ErrorProbability > 0 && rand.Float64() < chain.ErrorProbability {
+		return createErrorResponse(-32000, "header not found", nil, request.ID)
 	}
 
 	var result interface{}

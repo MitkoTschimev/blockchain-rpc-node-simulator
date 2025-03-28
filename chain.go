@@ -20,14 +20,15 @@ type Chain interface {
 }
 
 type EVMChain struct {
-	Name            string `yaml:"name"`
-	ChainID         string `yaml:"chain_id"`
-	BlockNumber     uint64
-	BlockInterval   time.Duration `yaml:"block_interval"`
-	BlockIncrement  uint32        // 0 = normal, 1 = paused
-	BlockInterrupt  uint32        // 0 = normal, 1 = interrupted
-	ResponseTimeout time.Duration
-	Latency         time.Duration `yaml:"latency"`
+	Name             string        `yaml:"name"`
+	ChainID          string        `yaml:"chain_id"`
+	BlockNumber      uint64        `yaml:"block_number"`
+	BlockIncrement   uint32        `yaml:"block_increment"`
+	BlockInterrupt   uint32        `yaml:"block_interrupt"`
+	BlockInterval    time.Duration `yaml:"block_interval"`
+	ResponseTimeout  time.Duration
+	Latency          time.Duration `yaml:"latency"`
+	ErrorProbability float64       `yaml:"error_probability"` // Probability of returning header not found error (0.0 to 1.0)
 }
 
 type SolanaNode struct {

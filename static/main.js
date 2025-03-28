@@ -24,6 +24,9 @@ class RPCSimulator {
         
         // Add latency control event listener
         document.getElementById('setLatencyBtn').addEventListener('click', () => this.setLatency());
+        
+        // Add error probability control event listener
+        document.getElementById('setErrorProbabilityBtn').addEventListener('click', () => this.setErrorProbability());
     }
 
     log(message, type = 'info') {
@@ -286,6 +289,22 @@ class RPCSimulator {
             this.log(`Latency set to ${latency}ms for ${chainIdToName[chainId]}`);
         } else {
             this.log(`Failed to set latency: ${response.statusText}`, 'error');
+        }
+    }
+
+    async setErrorProbability() {
+        const probability = document.getElementById('errorProbability').value;
+        const chainId = document.getElementById('chainSelect').value;
+        
+        const response = await this.sendControlRequest('/control/chain/error-probability', {
+            chain: chainId === '501' ? 'solana' : chainIdToName[chainId],
+            error_probability: parseFloat(probability)
+        });
+
+        if (response.ok) {
+            this.log(`Error probability set to ${probability} for ${chainIdToName[chainId]}`);
+        } else {
+            this.log(`Failed to set error probability: ${response.statusText}`, 'error');
         }
     }
 

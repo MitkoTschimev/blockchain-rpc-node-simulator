@@ -48,6 +48,7 @@ func handleControlEndpoints(mux *http.ServeMux) {
 	mux.HandleFunc("/control/timeout/clear", handleClearTimeout)
 	mux.HandleFunc("/control/chain/reorg", handleChainReorg)
 	mux.HandleFunc("/control/latency", handleSetLatency)
+	mux.HandleFunc("/control/chain/error-probability", handleSetErrorProbability)
 }
 
 func jsonResponse(w http.ResponseWriter, status int, response interface{}) {
@@ -623,4 +624,51 @@ func handleSetLatency(w http.ResponseWriter, r *http.Request) {
 		"chain":   request.Chain,
 		"latency": fmt.Sprintf("%dms", request.Latency),
 	})
+}
+
+func handleSetErrorProbability(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		Chain            string  `json:"chain"`
+		ErrorProbability float64 `json:"error_probability"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Convert chain name to chain ID
+	var chainId string
+	for id, name := range chainIdToName {
+		if name == request.Chain {
+			chainId = id
+			break
+		}
+	}
+
+	if chainId == "" {
+		http.Error(w, "Invalid chain name", http.StatusBadRequest)
+		return
+	}
+
+	// Validate error probability
+	if request.ErrorProbability < 0 || request.ErrorProbability > 1 {
+		http.Error(w, "Error probability must be between 0 and 1", http.StatusBadRequest)
+		return
+	}
+
+	// Set error probability for the chain
+	if chain, ok := supportedChains[request.Chain]; ok {
+		chain.ErrorProbability = request.ErrorProbability
+		log.Printf("Set error probability to %.2f for chain %s", request.ErrorProbability, request.Chain)
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	} else {
+		http.Error(w, "Chain not found", http.StatusNotFound)
+	}
 }
