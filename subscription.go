@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -96,6 +98,106 @@ func (sm *SubscriptionManager) DropAllConnections() int {
 	return count
 }
 
+// BlockNotification represents a new block notification
+type BlockNotification struct {
+	ParentHash      string        `json:"parentHash"`
+	Number          string        `json:"number"`
+	Hash            string        `json:"hash"`
+	Timestamp       string        `json:"timestamp"`
+	GasLimit        string        `json:"gasLimit"`
+	GasUsed         string        `json:"gasUsed"`
+	Miner           string        `json:"miner"`
+	Difficulty      string        `json:"difficulty"`
+	TotalDifficulty string        `json:"totalDifficulty"`
+	Size            string        `json:"size"`
+	Nonce           string        `json:"nonce"`
+	ExtraData       string        `json:"extraData"`
+	BaseFeePerGas   string        `json:"baseFeePerGas"`
+	Uncles          []string      `json:"uncles"`
+	Transactions    []interface{} `json:"transactions"`
+}
+
+// MarshalJSON implements custom JSON marshaling for BlockNotification
+func (b BlockNotification) MarshalJSON() ([]byte, error) {
+	// Create ordered fields
+	fields := []struct {
+		Key   string
+		Value interface{}
+	}{
+		{"number", b.Number},
+		{"hash", b.Hash},
+		{"timestamp", b.Timestamp},
+		{"gasLimit", b.GasLimit},
+		{"gasUsed", b.GasUsed},
+		{"miner", b.Miner},
+		{"difficulty", b.Difficulty},
+		{"totalDifficulty", b.TotalDifficulty},
+		{"size", b.Size},
+		{"nonce", b.Nonce},
+		{"extraData", b.ExtraData},
+		{"baseFeePerGas", b.BaseFeePerGas},
+		{"uncles", b.Uncles},
+		{"transactions", b.Transactions},
+	}
+
+	// Randomly decide whether to put parentHash first or last
+	port := os.Getenv("RPC_PORT")
+	putFirst := port == "8545"
+
+	// Create the final ordered slice
+	var orderedFields []struct {
+		Key   string
+		Value interface{}
+	}
+
+	if putFirst {
+		orderedFields = append([]struct {
+			Key   string
+			Value interface{}
+		}{{"parentHash", b.ParentHash}}, fields...)
+	} else {
+		orderedFields = append(fields, struct {
+			Key   string
+			Value interface{}
+		}{"parentHash", b.ParentHash})
+	}
+
+	// Create the JSON string manually to preserve order
+	var result strings.Builder
+	result.WriteString("{")
+	for i, field := range orderedFields {
+		if i > 0 {
+			result.WriteString(",")
+		}
+		keyJSON, _ := json.Marshal(field.Key)
+		valueJSON, _ := json.Marshal(field.Value)
+		result.Write(keyJSON)
+		result.WriteString(":")
+		result.Write(valueJSON)
+	}
+	result.WriteString("}")
+
+	return []byte(result.String()), nil
+}
+
+// Transaction represents a transaction in a block
+type Transaction struct {
+	Hash             string `json:"hash"`
+	Nonce            string `json:"nonce"`
+	BlockHash        string `json:"blockHash"`
+	BlockNumber      string `json:"blockNumber"`
+	TransactionIndex string `json:"transactionIndex"`
+	From             string `json:"from"`
+	To               string `json:"to"`
+	Value            string `json:"value"`
+	Gas              string `json:"gas"`
+	GasPrice         string `json:"gasPrice"`
+	Input            string `json:"input"`
+	V                string `json:"v"`
+	R                string `json:"r"`
+	S                string `json:"s"`
+}
+
 func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint64) {
 	// First, get all relevant subscriptions under a read lock
 	sm.mu.RLock()
@@ -113,49 +215,52 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 		switch chain {
 		case "1", "10", "56", "100", "137", "250", "324", "8217", "8453", "42161", "43114", "59144":
 			// Create block notification
-			block := map[string]interface{}{
-				"number":          fmt.Sprintf("0x%x", blockNumber),
-				"hash":            "0x" + hex.EncodeToString(make([]byte, 32)),
-				"parentHash":      "0x" + hex.EncodeToString(make([]byte, 32)),
-				"timestamp":       fmt.Sprintf("0x%x", time.Now().Unix()),
-				"gasLimit":        "0x" + hex.EncodeToString(make([]byte, 32)),
-				"gasUsed":         "0x" + hex.EncodeToString(make([]byte, 32)),
-				"miner":           "0x" + hex.EncodeToString(make([]byte, 20)),
-				"difficulty":      "0x" + hex.EncodeToString(make([]byte, 32)),
-				"totalDifficulty": "0x" + hex.EncodeToString(make([]byte, 32)),
-				"size":            "0x" + hex.EncodeToString(make([]byte, 32)),
-				"nonce":           "0x" + hex.EncodeToString(make([]byte, 8)),
-				"extraData":       "0x" + hex.EncodeToString(make([]byte, 32)),
-				"baseFeePerGas":   "0x" + hex.EncodeToString(make([]byte, 32)),
-				"uncles":          []string{},
+			block := BlockNotification{
+				ParentHash:      "0x" + hex.EncodeToString(make([]byte, 32)),
+				Number:          fmt.Sprintf("0x%x", blockNumber),
+				Hash:            "0x" + hex.EncodeToString(make([]byte, 32)),
+				Timestamp:       fmt.Sprintf("0x%x", time.Now().Unix()),
+				GasLimit:        "0x" + hex.EncodeToString(make([]byte, 32)),
+				GasUsed:         "0x" + hex.EncodeToString(make([]byte, 32)),
+				Miner:           "0x" + hex.EncodeToString(make([]byte, 20)),
+				Difficulty:      "0x" + hex.EncodeToString(make([]byte, 32)),
+				TotalDifficulty: "0x" + hex.EncodeToString(make([]byte, 32)),
+				Size:            "0x" + hex.EncodeToString(make([]byte, 32)),
+				Nonce:           "0x" + hex.EncodeToString(make([]byte, 8)),
+				ExtraData:       "0x" + hex.EncodeToString(make([]byte, 32)),
+				BaseFeePerGas:   "0x" + hex.EncodeToString(make([]byte, 32)),
+				Uncles:          []string{},
 			}
 
 			// Add transactions if subscription type is newHeadsWithTx
 			if sub.Method == "newHeadsWithTx" {
 				// Generate a random number of transactions (1-5)
 				numTx := rand.Intn(5) + 1
-				transactions := make([]map[string]interface{}, numTx)
+				transactions := make([]Transaction, numTx)
 				for i := 0; i < numTx; i++ {
-					transactions[i] = map[string]interface{}{
-						"hash":             "0x" + hex.EncodeToString(make([]byte, 32)),
-						"nonce":            fmt.Sprintf("0x%x", rand.Uint64()),
-						"blockHash":        "0x" + hex.EncodeToString(make([]byte, 32)),
-						"blockNumber":      fmt.Sprintf("0x%x", blockNumber),
-						"transactionIndex": fmt.Sprintf("0x%x", i),
-						"from":             "0x" + hex.EncodeToString(make([]byte, 20)),
-						"to":               "0x" + hex.EncodeToString(make([]byte, 20)),
-						"value":            "0x" + hex.EncodeToString(make([]byte, 32)),
-						"gas":              "0x" + hex.EncodeToString(make([]byte, 32)),
-						"gasPrice":         "0x" + hex.EncodeToString(make([]byte, 32)),
-						"input":            "0x" + hex.EncodeToString(make([]byte, 32)),
-						"v":                "0x" + hex.EncodeToString(make([]byte, 1)),
-						"r":                "0x" + hex.EncodeToString(make([]byte, 32)),
-						"s":                "0x" + hex.EncodeToString(make([]byte, 32)),
+					transactions[i] = Transaction{
+						Hash:             "0x" + hex.EncodeToString(make([]byte, 32)),
+						Nonce:            fmt.Sprintf("0x%x", rand.Uint64()),
+						BlockHash:        "0x" + hex.EncodeToString(make([]byte, 32)),
+						BlockNumber:      fmt.Sprintf("0x%x", blockNumber),
+						TransactionIndex: fmt.Sprintf("0x%x", i),
+						From:             "0x" + hex.EncodeToString(make([]byte, 20)),
+						To:               "0x" + hex.EncodeToString(make([]byte, 20)),
+						Value:            "0x" + hex.EncodeToString(make([]byte, 32)),
+						Gas:              "0x" + hex.EncodeToString(make([]byte, 32)),
+						GasPrice:         "0x" + hex.EncodeToString(make([]byte, 32)),
+						Input:            "0x" + hex.EncodeToString(make([]byte, 32)),
+						V:                "0x" + hex.EncodeToString(make([]byte, 1)),
+						R:                "0x" + hex.EncodeToString(make([]byte, 32)),
+						S:                "0x" + hex.EncodeToString(make([]byte, 32)),
 					}
 				}
-				block["transactions"] = transactions
+				block.Transactions = make([]interface{}, len(transactions))
+				for i, tx := range transactions {
+					block.Transactions[i] = tx
+				}
 			} else {
-				block["transactions"] = []interface{}{} // Empty array for regular newHeads
+				block.Transactions = []interface{}{} // Empty array for regular newHeads
 			}
 
 			notification = JSONRPCNotification{
@@ -203,8 +308,8 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 }
 
 type SubscriptionParams struct {
-	Subscription interface{}            `json:"subscription"`
-	Result       map[string]interface{} `json:"result"`
+	Subscription interface{} `json:"subscription"`
+	Result       interface{} `json:"result"`
 }
 
 // LogEvent represents an EVM log event

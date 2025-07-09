@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Run RPC Server (with hot reload)",
+            "label": "Run RPC Server (with hot reload) 1",
             "type": "shell",
             "command": "air",
             "group": {
@@ -13,7 +13,31 @@
                 "reveal": "always",
                 "panel": "new"
             },
-            "problemMatcher": []
+            "problemMatcher": [],
+            "options": {
+                "env": {
+                    "RPC_PORT": "8545"
+                }
+            }
+        },
+        {
+            "label": "Run RPC Server (with hot reload) 2",
+            "type": "shell",
+            "command": "air",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": [],
+            "options": {
+                "env": {
+                    "RPC_PORT": "8546"
+                }
+            }
         },
         {
             "label": "Run RPC Server",

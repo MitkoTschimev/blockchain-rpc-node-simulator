@@ -72,8 +72,14 @@ func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, erro
 		result = fmt.Sprintf("0x%x", atomic.LoadUint64(&chain.BlockNumber))
 	case "eth_getBalance":
 		result = "0x1234567890"
+	case "eth_call":
+		result = "0x1234567890"
 	case "getHealth":
 		result = "ok"
+	case "eth_accounts":
+		result = []string{}
+	case "net_listening":
+		result = true
 	case "eth_getBlockByNumber":
 		result = fmt.Sprintf("0x%x", atomic.LoadUint64(&chain.BlockNumber))
 	case "eth_subscribe":
