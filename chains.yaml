@@ -4,61 +4,73 @@ evm_chains:
     chain_id: "0x1"  # 1 Mainnet
     block_interval: 12.04s  # From Chainspect: 12.04s
     latency: 0s  # Default latency is 0
+    logs_per_block: 5  # Number of log events to generate per block (default: 5)
   optimism:
     name: optimism
     chain_id: "0xa"  # 10
     block_interval: 2s      # From Chainspect: 2s
     latency: 0s
+    logs_per_block: 5
   binance:
     name: binance
     chain_id: "0x38"  # 56
     block_interval: 3s      # From Chainspect: 3s for BNB Chain
     latency: 0s
+    logs_per_block: 5
   gnosis:
     name: gnosis
     chain_id: "0x64"  # 100clear
     block_interval: 5s      # Default since not in top chains
     latency: 0s
+    logs_per_block: 5
   polygon:
     name: polygon
     chain_id: "0x89"  # 137
     block_interval: 2.13s   # From Chainspect: 2.13s
     latency: 0s
+    logs_per_block: 5
   fantom:
     name: fantom
     chain_id: "0xfa"  # 250
     block_interval: 1s      # Default since not in top chains
     latency: 0s
+    logs_per_block: 5
   zksync:
     name: zksync
     chain_id: "0x144"  # 324
     block_interval: 1s      # Default since not in top chains
     latency: 0s
+    logs_per_block: 5
   kaia:
     name: kaia
     chain_id: "0x2019"  # 8217
     block_interval: 1.01s   # From Chainspect (Kaia): 1.01s
     latency: 0s
+    logs_per_block: 5
   base:
     name: base
     chain_id: "0x2105"  # 8453
     block_interval: 2s      # From Chainspect: 2s
     latency: 0s
+    logs_per_block: 5
   arbitrum:
     name: arbitrum
     chain_id: "0xa4b1"  # 42161
     block_interval: 250ms   # From Chainspect: 0.25s
     latency: 0s
+    logs_per_block: 5
   avalanche:
     name: avalanche
     chain_id: "0xa86a"  # 43114
     block_interval: 1.61s   # From Chainspect: 1.61s
     latency: 0s
+    logs_per_block: 5
   linea:
     name: linea
     chain_id: "0xe708"  # 59144
     block_interval: 2s      # Default since not in top chains
     latency: 0s
+    logs_per_block: 5
 
 solana:
   slot_interval: 400ms     # From Chainspect: 0.4s

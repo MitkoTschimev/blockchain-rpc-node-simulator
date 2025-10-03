@@ -203,7 +203,7 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 	sm.mu.RLock()
 	subs := make([]*Subscription, 0)
 	for _, sub := range sm.subscriptions {
-		if sub.Type == chain {
+		if sub.Type == chain && (sub.Method == "newHeads" || sub.Method == "newHeadsWithTx") {
 			subs = append(subs, sub)
 		}
 	}

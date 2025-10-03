@@ -29,6 +29,8 @@ type EVMChain struct {
 	ResponseTimeout  time.Duration
 	Latency          time.Duration `yaml:"latency"`
 	ErrorProbability float64       `yaml:"error_probability"` // Probability of returning header not found error (0.0 to 1.0)
+	LogsPerBlock     int           `yaml:"logs_per_block"`    // Number of log events to generate per block
+	LogIndex         uint64        // Incremental counter for log events
 }
 
 type SolanaNode struct {
@@ -72,6 +74,10 @@ func init() {
 	for _, chain := range supportedChains {
 		chain.BlockNumber = 1
 		chain.BlockIncrement = 0
+		// Set default logs per block if not configured
+		if chain.LogsPerBlock == 0 {
+			chain.LogsPerBlock = 5
+		}
 	}
 	// Initialize Solana slot number
 	solanaNode.SlotNumber = 1

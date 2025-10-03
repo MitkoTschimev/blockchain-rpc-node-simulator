@@ -27,6 +27,9 @@ class RPCSimulator {
         
         // Add error probability control event listener
         document.getElementById('setErrorProbabilityBtn').addEventListener('click', () => this.setErrorProbability());
+
+        // Add logs per block control event listener
+        document.getElementById('setLogsPerBlockBtn').addEventListener('click', () => this.setLogsPerBlock());
     }
 
     log(message, type = 'info') {
@@ -295,7 +298,7 @@ class RPCSimulator {
     async setErrorProbability() {
         const probability = document.getElementById('errorProbability').value;
         const chainId = document.getElementById('chainSelect').value;
-        
+
         const response = await this.sendControlRequest('/control/chain/error-probability', {
             chain: chainId === '501' ? 'solana' : chainIdToName[chainId],
             error_probability: parseFloat(probability)
@@ -305,6 +308,22 @@ class RPCSimulator {
             this.log(`Error probability set to ${probability} for ${chainIdToName[chainId]}`);
         } else {
             this.log(`Failed to set error probability: ${response.statusText}`, 'error');
+        }
+    }
+
+    async setLogsPerBlock() {
+        const logsPerBlock = document.getElementById('logsPerBlock').value;
+        const chainId = document.getElementById('chainSelect').value;
+
+        const response = await this.sendControlRequest('/control/chain/logs-per-block', {
+            chain: chainId === '501' ? 'solana' : chainIdToName[chainId],
+            logs_per_block: parseInt(logsPerBlock)
+        });
+
+        if (response.ok) {
+            this.log(`Logs per block set to ${logsPerBlock} for ${chainIdToName[chainId]}`);
+        } else {
+            this.log(`Failed to set logs per block: ${response.statusText}`, 'error');
         }
     }
 

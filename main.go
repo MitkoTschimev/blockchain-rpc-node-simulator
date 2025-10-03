@@ -33,7 +33,7 @@ var (
 		"137":   "polygon",   // Polygon
 		"250":   "fantom",    // Fantom
 		"324":   "zksync",    // zkSync Era
-		"8217":  "kaia",    // kaia
+		"8217":  "kaia",      // kaia
 		"8453":  "base",      // Base
 		"42161": "arbitrum",  // Arbitrum One
 		"43114": "avalanche", // Avalanche
@@ -70,20 +70,32 @@ func main() {
 					newBlock := atomic.AddUint64(&c.BlockNumber, 1)
 					subManager.BroadcastNewBlock(chainId, newBlock)
 
-					// Generate and broadcast some sample log events
+					// Generate and broadcast log events per block, spread across the block interval
 					// In a real implementation, you would generate logs based on actual contract events
-					logEvent := LogEvent{
-						Address:     "0x" + hex.EncodeToString(make([]byte, 20)),
-						Topics:      []string{"0x" + hex.EncodeToString(make([]byte, 32))},
-						Data:        "0x" + hex.EncodeToString(make([]byte, 32)),
-						BlockNumber: newBlock,
-						TxHash:      "0x" + hex.EncodeToString(make([]byte, 32)),
-						TxIndex:     0,
-						BlockHash:   "0x" + hex.EncodeToString(make([]byte, 32)),
-						LogIndex:    0,
-						Removed:     false,
-					}
-					subManager.BroadcastNewLog(chainId, logEvent)
+					go func(blockNum uint64, interval time.Duration, logsPerBlock int) {
+						if logsPerBlock <= 0 {
+							return
+						}
+						logInterval := interval / time.Duration(logsPerBlock)
+						for i := 0; i < logsPerBlock; i++ {
+							if i > 0 {
+								time.Sleep(logInterval)
+							}
+							logIndex := atomic.AddUint64(&c.LogIndex, 1) - 1
+							logEvent := LogEvent{
+								Address:     "0x" + hex.EncodeToString(make([]byte, 20)),
+								Topics:      []string{"0x" + hex.EncodeToString(make([]byte, 32))},
+								Data:        "0x" + hex.EncodeToString(make([]byte, 32)),
+								BlockNumber: blockNum,
+								TxHash:      "0x" + hex.EncodeToString(make([]byte, 32)),
+								TxIndex:     uint64(i),
+								BlockHash:   "0x" + hex.EncodeToString(make([]byte, 32)),
+								LogIndex:    logIndex,
+								Removed:     false,
+							}
+							subManager.BroadcastNewLog(chainId, logEvent)
+						}
+					}(newBlock, c.BlockInterval, c.LogsPerBlock)
 				}
 			}
 		}(chainName, chain)

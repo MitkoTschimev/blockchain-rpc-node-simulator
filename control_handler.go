@@ -49,6 +49,7 @@ func handleControlEndpoints(mux *http.ServeMux) {
 	mux.HandleFunc("/control/chain/reorg", handleChainReorg)
 	mux.HandleFunc("/control/latency", handleSetLatency)
 	mux.HandleFunc("/control/chain/error-probability", handleSetErrorProbability)
+	mux.HandleFunc("/control/chain/logs-per-block", handleSetLogsPerBlock)
 }
 
 func jsonResponse(w http.ResponseWriter, status int, response interface{}) {
@@ -666,6 +667,39 @@ func handleSetErrorProbability(w http.ResponseWriter, r *http.Request) {
 	if chain, ok := supportedChains[request.Chain]; ok {
 		chain.ErrorProbability = request.ErrorProbability
 		log.Printf("Set error probability to %.2f for chain %s", request.ErrorProbability, request.Chain)
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	} else {
+		http.Error(w, "Chain not found", http.StatusNotFound)
+	}
+}
+
+func handleSetLogsPerBlock(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		Chain        string `json:"chain"`
+		LogsPerBlock int    `json:"logs_per_block"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate logs per block
+	if request.LogsPerBlock < 0 {
+		http.Error(w, "Logs per block must be non-negative", http.StatusBadRequest)
+		return
+	}
+
+	// Set logs per block for the chain
+	if chain, ok := supportedChains[request.Chain]; ok {
+		chain.LogsPerBlock = request.LogsPerBlock
+		log.Printf("Set logs per block to %d for chain %s", request.LogsPerBlock, request.Chain)
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	} else {

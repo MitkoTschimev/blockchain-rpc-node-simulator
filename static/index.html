@@ -340,6 +340,16 @@
                     </small>
                 </div>
                 <div class="form-group">
+                    <label for="logsPerBlock">Logs Per Block</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="number" id="logsPerBlock" class="form-control" step="1" min="0" placeholder="Number of logs per block">
+                        <button id="setLogsPerBlockBtn" class="btn">Set</button>
+                    </div>
+                    <small style="color: #666; margin-top: 0.25rem; display: block;">
+                        Number of log events to generate per block (spread evenly across block time)
+                    </small>
+                </div>
+                <div class="form-group">
                     <label for="interruptDuration">Block Interruption (seconds)</label>
                     <div style="display: flex; gap: 0.5rem;">
                         <input type="number" id="interruptDuration" class="form-control" step="0.1" placeholder="Duration">
