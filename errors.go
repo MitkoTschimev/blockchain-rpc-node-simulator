@@ -77,6 +77,12 @@ var PredefinedErrors = map[string]ErrorConfig{
 		Data:    "The filter does not exist or has expired",
 		Methods: []string{"eth_getFilterChanges", "eth_getFilterLogs", "eth_uninstallFilter"},
 	},
+	"invalid_block_range": {
+		Code:    -32000,
+		Message: "invalid block range params",
+		Data:    "The block range parameters are invalid (toBlock > current block or fromBlock > toBlock)",
+		Methods: []string{"eth_getLogs"},
+	},
 	"resource_not_found": {
 		Code:    -32001,
 		Message: "resource not found",

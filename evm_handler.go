@@ -169,6 +169,86 @@ func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, erro
 		}
 		result = true
 
+	case "eth_getLogs":
+		if len(request.Params) < 1 {
+			return createErrorResponse(-32602, "Invalid params", nil, request.ID)
+		}
+
+		// Parse filter object
+		filterObj, ok := request.Params[0].(map[string]interface{})
+		if !ok {
+			return createErrorResponse(-32602, "Invalid filter object", nil, request.ID)
+		}
+
+		// Get current block number
+		currentBlock := atomic.LoadUint64(&chain.BlockNumber)
+
+		// Parse fromBlock and toBlock
+		var fromBlock, toBlock uint64
+
+		// Parse fromBlock
+		if fromBlockRaw, exists := filterObj["fromBlock"]; exists {
+			fromBlockStr, ok := fromBlockRaw.(string)
+			if !ok {
+				return createErrorResponse(-32602, "Invalid fromBlock parameter", nil, request.ID)
+			}
+			if fromBlockStr == "latest" || fromBlockStr == "pending" {
+				fromBlock = currentBlock
+			} else if fromBlockStr == "earliest" {
+				fromBlock = 0
+			} else {
+				// Parse hex block number
+				if len(fromBlockStr) > 2 && fromBlockStr[:2] == "0x" {
+					fromBlockStr = fromBlockStr[2:]
+				}
+				parsedBlock, err := strconv.ParseUint(fromBlockStr, 16, 64)
+				if err != nil {
+					return createErrorResponse(-32602, "Invalid fromBlock hex value", nil, request.ID)
+				}
+				fromBlock = parsedBlock
+			}
+		} else {
+			fromBlock = 0 // Default to earliest
+		}
+
+		// Parse toBlock
+		if toBlockRaw, exists := filterObj["toBlock"]; exists {
+			toBlockStr, ok := toBlockRaw.(string)
+			if !ok {
+				return createErrorResponse(-32602, "Invalid toBlock parameter", nil, request.ID)
+			}
+			if toBlockStr == "latest" || toBlockStr == "pending" {
+				toBlock = currentBlock
+			} else if toBlockStr == "earliest" {
+				toBlock = 0
+			} else {
+				// Parse hex block number
+				if len(toBlockStr) > 2 && toBlockStr[:2] == "0x" {
+					toBlockStr = toBlockStr[2:]
+				}
+				parsedBlock, err := strconv.ParseUint(toBlockStr, 16, 64)
+				if err != nil {
+					return createErrorResponse(-32602, "Invalid toBlock hex value", nil, request.ID)
+				}
+				toBlock = parsedBlock
+			}
+		} else {
+			toBlock = currentBlock // Default to latest
+		}
+
+		// Validate block range: toBlock must not be higher than current block
+		if toBlock > currentBlock {
+			return createErrorResponse(-32000, "invalid block range params", nil, request.ID)
+		}
+
+		// Validate fromBlock <= toBlock
+		if fromBlock > toBlock {
+			return createErrorResponse(-32000, "invalid block range params", nil, request.ID)
+		}
+
+		// Return empty logs array (can be extended later to return actual logs)
+		result = []interface{}{}
+
 	default:
 		return createErrorResponse(-32601, "Method not found", nil, request.ID)
 	}
