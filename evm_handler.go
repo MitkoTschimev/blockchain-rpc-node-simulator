@@ -57,9 +57,18 @@ func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, erro
 		return createErrorResponse(-32600, "Invalid Request", nil, request.ID)
 	}
 
-	// Randomly return header not found error based on probability
+	// Legacy error probability support (deprecated but maintained for backwards compatibility)
 	if chain.ErrorProbability > 0 && rand.Float64() < chain.ErrorProbability {
 		return createErrorResponse(-32000, "header not found", nil, request.ID)
+	}
+
+	// New configurable error simulation
+	if errorConfig := ShouldSimulateError(chain.ErrorConfigs, request.Method); errorConfig != nil {
+		var data interface{}
+		if errorConfig.Data != "" {
+			data = errorConfig.Data
+		}
+		return createErrorResponse(errorConfig.Code, errorConfig.Message, data, request.ID)
 	}
 
 	var result interface{}

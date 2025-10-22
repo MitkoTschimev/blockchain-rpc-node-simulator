@@ -15,21 +15,30 @@ class RPCSimulator {
         document.getElementById('resumeBlockBtn').addEventListener('click', () => this.resumeBlock());
         document.getElementById('setIntervalBtn').addEventListener('click', () => this.setBlockInterval());
         document.getElementById('dropConnectionsBtn').addEventListener('click', () => this.dropConnections());
-        
+
         // New event listeners for chain disruptions
         document.getElementById('setTimeoutBtn').addEventListener('click', () => this.setTimeout());
         document.getElementById('clearTimeoutBtn').addEventListener('click', () => this.clearTimeout());
         document.getElementById('interruptBlocksBtn').addEventListener('click', () => this.interruptBlocks());
         document.getElementById('triggerReorgBtn').addEventListener('click', () => this.triggerReorg());
-        
+
         // Add latency control event listener
         document.getElementById('setLatencyBtn').addEventListener('click', () => this.setLatency());
-        
+
         // Add error probability control event listener
         document.getElementById('setErrorProbabilityBtn').addEventListener('click', () => this.setErrorProbability());
 
         // Add logs per block control event listener
         document.getElementById('setLogsPerBlockBtn').addEventListener('click', () => this.setLogsPerBlock());
+
+        // Add error simulation event listeners
+        document.getElementById('addErrorBtn').addEventListener('click', () => this.addError());
+        document.getElementById('clearErrorsBtn').addEventListener('click', () => this.clearErrors());
+        document.getElementById('errorTemplate').addEventListener('change', (e) => this.selectErrorTemplate(e.target.value));
+
+        // Load predefined errors and current error configs
+        this.loadPredefinedErrors();
+        this.loadErrorConfigs();
     }
 
     log(message, type = 'info') {
@@ -453,13 +462,13 @@ class RPCSimulator {
         sortedChains.forEach(([chainId, count]) => {
             const tr = document.createElement('tr');
             const prevCount = tr.querySelector('.badge')?.textContent || '0';
-            
+
             tr.innerHTML = `
                 <td style="padding: 8px; border-bottom: 1px solid #ddd;">
                     ${chainNames[chainId] || chainId}
                 </td>
                 <td style="text-align: right; padding: 8px; border-bottom: 1px solid #ddd;">
-                    <span class="badge ${count > 0 ? 'badge-success' : 'badge-danger'} 
+                    <span class="badge ${count > 0 ? 'badge-success' : 'badge-danger'}
                           ${count !== parseInt(prevCount) ? 'badge-updated' : ''}">${count}</span>
                 </td>
             `;
@@ -479,6 +488,175 @@ class RPCSimulator {
             }
         `;
         document.head.appendChild(style);
+    }
+
+    async loadPredefinedErrors() {
+        try {
+            const response = await fetch('/control/errors/predefined');
+            if (response.ok) {
+                const data = await response.json();
+                const select = document.getElementById('errorTemplate');
+
+                // Clear existing options except the first one
+                select.innerHTML = '<option value="">-- Select Error Template --</option>';
+
+                // Add predefined errors
+                Object.entries(data.predefined_errors).forEach(([key, error]) => {
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.textContent = `${error.message} (${error.code})`;
+                    select.appendChild(option);
+                });
+            }
+        } catch (error) {
+            this.log(`Failed to load predefined errors: ${error.message}`, 'error');
+        }
+    }
+
+    async loadErrorConfigs() {
+        const chainId = document.getElementById('chainSelect').value;
+        const chainName = chainId === '501' ? 'solana' : chainIdToName[chainId];
+
+        try {
+            const response = await fetch(`/control/errors/list?chain=${chainName}`);
+            if (response.ok) {
+                const data = await response.json();
+                this.updateErrorList(data.error_configs || []);
+            }
+        } catch (error) {
+            this.log(`Failed to load error configs: ${error.message}`, 'error');
+        }
+    }
+
+    async selectErrorTemplate(templateKey) {
+        if (!templateKey) return;
+
+        try {
+            const response = await fetch('/control/errors/predefined');
+            if (response.ok) {
+                const data = await response.json();
+                const error = data.predefined_errors[templateKey];
+
+                if (error) {
+                    // Fill in the custom fields
+                    document.getElementById('customErrorCode').value = error.code;
+                    document.getElementById('customErrorMessage').value = error.message;
+                    document.getElementById('customErrorData').value = error.data || '';
+                    document.getElementById('customErrorProbability').value = '0.1';
+                    document.getElementById('customErrorMethods').value = error.methods ? error.methods.join(', ') : '';
+                }
+            }
+        } catch (error) {
+            this.log(`Failed to load error template: ${error.message}`, 'error');
+        }
+    }
+
+    async addError() {
+        const chainId = document.getElementById('chainSelect').value;
+        const chainName = chainId === '501' ? 'solana' : chainIdToName[chainId];
+
+        const code = parseInt(document.getElementById('customErrorCode').value);
+        const message = document.getElementById('customErrorMessage').value;
+        const data = document.getElementById('customErrorData').value;
+        const probability = parseFloat(document.getElementById('customErrorProbability').value);
+        const methodsStr = document.getElementById('customErrorMethods').value;
+
+        if (!code || !message || isNaN(probability)) {
+            this.log('Please fill in error code, message, and probability', 'error');
+            return;
+        }
+
+        if (probability < 0 || probability > 1) {
+            this.log('Probability must be between 0 and 1', 'error');
+            return;
+        }
+
+        const methods = methodsStr ? methodsStr.split(',').map(m => m.trim()).filter(m => m) : [];
+
+        const errorConfig = {
+            code: code,
+            message: message,
+            data: data,
+            probability: probability,
+            methods: methods
+        };
+
+        const response = await this.sendControlRequest('/control/errors/add', {
+            chain: chainName,
+            error_config: errorConfig
+        });
+
+        if (response.ok) {
+            this.log(`Added error configuration: ${message} (${code})`);
+            this.loadErrorConfigs();
+            // Clear form
+            document.getElementById('customErrorCode').value = '';
+            document.getElementById('customErrorMessage').value = '';
+            document.getElementById('customErrorData').value = '';
+            document.getElementById('customErrorProbability').value = '';
+            document.getElementById('customErrorMethods').value = '';
+            document.getElementById('errorTemplate').value = '';
+        } else {
+            this.log(`Failed to add error configuration: ${response.statusText}`, 'error');
+        }
+    }
+
+    async clearErrors() {
+        const chainId = document.getElementById('chainSelect').value;
+        const chainName = chainId === '501' ? 'solana' : chainIdToName[chainId];
+
+        const response = await this.sendControlRequest('/control/errors/clear', {
+            chain: chainName
+        });
+
+        if (response.ok) {
+            this.log('Cleared all error configurations');
+            this.loadErrorConfigs();
+        } else {
+            this.log(`Failed to clear error configurations: ${response.statusText}`, 'error');
+        }
+    }
+
+    async removeError(index) {
+        const chainId = document.getElementById('chainSelect').value;
+        const chainName = chainId === '501' ? 'solana' : chainIdToName[chainId];
+
+        const response = await this.sendControlRequest('/control/errors/remove', {
+            chain: chainName,
+            index: index
+        });
+
+        if (response.ok) {
+            this.log(`Removed error configuration at index ${index}`);
+            this.loadErrorConfigs();
+        } else {
+            this.log(`Failed to remove error configuration: ${response.statusText}`, 'error');
+        }
+    }
+
+    updateErrorList(errorConfigs) {
+        const errorList = document.getElementById('errorList');
+
+        if (!errorConfigs || errorConfigs.length === 0) {
+            errorList.innerHTML = '<div style="color: #666;">No errors configured</div>';
+            return;
+        }
+
+        errorList.innerHTML = errorConfigs.map((error, index) => {
+            const methodsText = error.methods && error.methods.length > 0
+                ? `<br><small>Methods: ${error.methods.join(', ')}</small>`
+                : '';
+            return `
+                <div style="padding: 0.5rem; background: #f5f5f5; margin-bottom: 0.5rem; border-radius: 4px; display: flex; justify-content: space-between; align-items: start;">
+                    <div>
+                        <strong>${error.message}</strong> (${error.code})
+                        <br><small>Probability: ${(error.probability * 100).toFixed(1)}%</small>
+                        ${methodsText}
+                    </div>
+                    <button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="simulator.removeError(${index})">Remove</button>
+                </div>
+            `;
+        }).join('');
     }
 }
 

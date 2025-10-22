@@ -50,6 +50,12 @@ func handleControlEndpoints(mux *http.ServeMux) {
 	mux.HandleFunc("/control/latency", handleSetLatency)
 	mux.HandleFunc("/control/chain/error-probability", handleSetErrorProbability)
 	mux.HandleFunc("/control/chain/logs-per-block", handleSetLogsPerBlock)
+	// New error configuration endpoints
+	mux.HandleFunc("/control/errors/add", handleAddErrorConfig)
+	mux.HandleFunc("/control/errors/remove", handleRemoveErrorConfig)
+	mux.HandleFunc("/control/errors/clear", handleClearErrorConfigs)
+	mux.HandleFunc("/control/errors/list", handleListErrorConfigs)
+	mux.HandleFunc("/control/errors/predefined", handleListPredefinedErrors)
 }
 
 func jsonResponse(w http.ResponseWriter, status int, response interface{}) {
@@ -705,4 +711,155 @@ func handleSetLogsPerBlock(w http.ResponseWriter, r *http.Request) {
 	} else {
 		http.Error(w, "Chain not found", http.StatusNotFound)
 	}
+}
+
+// handleAddErrorConfig adds a new error configuration to a chain
+func handleAddErrorConfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		Chain       string      `json:"chain"`
+		ErrorConfig ErrorConfig `json:"error_config"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate error probability
+	if request.ErrorConfig.Probability < 0 || request.ErrorConfig.Probability > 1 {
+		http.Error(w, "Error probability must be between 0 and 1", http.StatusBadRequest)
+		return
+	}
+
+	// Add error config to the chain
+	if chain, ok := supportedChains[request.Chain]; ok {
+		chain.ErrorConfigs = append(chain.ErrorConfigs, request.ErrorConfig)
+		log.Printf("Added error config (code: %d, probability: %.2f) to chain %s",
+			request.ErrorConfig.Code, request.ErrorConfig.Probability, request.Chain)
+		jsonResponse(w, http.StatusOK, map[string]interface{}{
+			"status": "ok",
+			"message": "Error configuration added successfully",
+		})
+	} else {
+		http.Error(w, "Chain not found", http.StatusNotFound)
+	}
+}
+
+// handleRemoveErrorConfig removes an error configuration from a chain
+func handleRemoveErrorConfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		Chain string `json:"chain"`
+		Index int    `json:"index"` // Index of error config to remove
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Remove error config from the chain
+	if chain, ok := supportedChains[request.Chain]; ok {
+		if request.Index < 0 || request.Index >= len(chain.ErrorConfigs) {
+			http.Error(w, "Invalid error config index", http.StatusBadRequest)
+			return
+		}
+
+		// Remove the element at index
+		chain.ErrorConfigs = append(chain.ErrorConfigs[:request.Index], chain.ErrorConfigs[request.Index+1:]...)
+		log.Printf("Removed error config at index %d from chain %s", request.Index, request.Chain)
+		jsonResponse(w, http.StatusOK, map[string]interface{}{
+			"status": "ok",
+			"message": "Error configuration removed successfully",
+		})
+	} else {
+		http.Error(w, "Chain not found", http.StatusNotFound)
+	}
+}
+
+// handleClearErrorConfigs clears all error configurations from a chain
+func handleClearErrorConfigs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		Chain string `json:"chain"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Clear error configs from the chain
+	if chain, ok := supportedChains[request.Chain]; ok {
+		chain.ErrorConfigs = []ErrorConfig{}
+		log.Printf("Cleared all error configs from chain %s", request.Chain)
+		jsonResponse(w, http.StatusOK, map[string]interface{}{
+			"status": "ok",
+			"message": "All error configurations cleared successfully",
+		})
+	} else {
+		http.Error(w, "Chain not found", http.StatusNotFound)
+	}
+}
+
+// handleListErrorConfigs returns all error configurations for a chain
+func handleListErrorConfigs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var chainName string
+	if r.Method == http.MethodGet {
+		chainName = r.URL.Query().Get("chain")
+	} else {
+		var request struct {
+			Chain string `json:"chain"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+		chainName = request.Chain
+	}
+
+	if chainName == "" {
+		http.Error(w, "Chain parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get error configs from the chain
+	if chain, ok := supportedChains[chainName]; ok {
+		jsonResponse(w, http.StatusOK, map[string]interface{}{
+			"chain":         chainName,
+			"error_configs": chain.ErrorConfigs,
+		})
+	} else {
+		http.Error(w, "Chain not found", http.StatusNotFound)
+	}
+}
+
+// handleListPredefinedErrors returns all predefined error templates
+func handleListPredefinedErrors(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]interface{}{
+		"predefined_errors": PredefinedErrors,
+	})
 }

@@ -28,7 +28,8 @@ type EVMChain struct {
 	BlockInterval    time.Duration `yaml:"block_interval"`
 	ResponseTimeout  time.Duration
 	Latency          time.Duration `yaml:"latency"`
-	ErrorProbability float64       `yaml:"error_probability"` // Probability of returning header not found error (0.0 to 1.0)
+	ErrorProbability float64       `yaml:"error_probability"` // Deprecated: use ErrorConfigs instead
+	ErrorConfigs     []ErrorConfig `yaml:"error_configs" json:"error_configs"` // Configurable error simulation
 	LogsPerBlock     int           `yaml:"logs_per_block"`    // Number of log events to generate per block
 	LogIndex         uint64        // Incremental counter for log events
 }
