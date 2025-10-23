@@ -126,7 +126,7 @@ func handleSetBlock(w http.ResponseWriter, r *http.Request) {
 
 	if req.Chain == "solana" {
 		atomic.StoreUint64(&solanaNode.SlotNumber, req.BlockNumber)
-		subManager.BroadcastNewBlock("solana", req.BlockNumber)
+		subManager.BroadcastNewBlock("501", req.BlockNumber)
 		jsonResponse(w, http.StatusOK, ControlResponse{
 			Success: true,
 			Message: "Slot number updated for Solana",

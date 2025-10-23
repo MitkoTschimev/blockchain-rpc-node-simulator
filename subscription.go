@@ -203,7 +203,7 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 	sm.mu.RLock()
 	subs := make([]*Subscription, 0)
 	for _, sub := range sm.subscriptions {
-		if sub.Type == chain && (sub.Method == "newHeads" || sub.Method == "newHeadsWithTx") {
+		if sub.Type == chain && (sub.Method == "newHeads" || sub.Method == "newHeadsWithTx" || sub.Method == "slotNotification") {
 			subs = append(subs, sub)
 		}
 	}
@@ -297,9 +297,6 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 			continue
 		}
 
-		if sub.Method == "newHeadsWithTx" {
-			log.Printf("Broadcasting block notification")
-		}
 		if err := sub.Conn.WriteMessage(websocket.TextMessage, data); err != nil {
 			// If we can't write to the connection, remove the subscription
 			sm.Unsubscribe(sub.ID)
