@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -21,6 +23,14 @@ func init() {
 	// Initialize Solana slot number
 	solanaNode.SlotNumber = 1
 	solanaNode.SlotIncrement = 0
+}
+
+// generateBlockHash creates a deterministic hash based on block number and chain ID
+func generateBlockHash(blockNumber uint64, chainID string, seed string) string {
+	// Create a unique input combining block number, chain ID, and seed
+	input := fmt.Sprintf("%s-%d-%s", chainID, blockNumber, seed)
+	hash := sha256.Sum256([]byte(input))
+	return "0x" + hex.EncodeToString(hash[:])
 }
 
 func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, error) {
@@ -118,9 +128,63 @@ func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, erro
 				}
 				blockNumber = parsedBlock
 			}
-			result = fmt.Sprintf("0x%x", blockNumber)
+
+			// Generate unique hashes for this block
+			blockHash := generateBlockHash(blockNumber, chainId, "block")
+			var parentHash string
+			if blockNumber > 0 {
+				parentHash = generateBlockHash(blockNumber-1, chainId, "block")
+			} else {
+				parentHash = "0x" + hex.EncodeToString(make([]byte, 32))
+			}
+
+			// Return a full block object
+			result = map[string]interface{}{
+				"number":          fmt.Sprintf("0x%x", blockNumber),
+				"hash":            blockHash,
+				"parentHash":      parentHash,
+				"timestamp":       fmt.Sprintf("0x%x", time.Now().Unix()),
+				"gasLimit":        "0x" + hex.EncodeToString(make([]byte, 32)),
+				"gasUsed":         "0x" + hex.EncodeToString(make([]byte, 32)),
+				"miner":           "0x" + hex.EncodeToString(make([]byte, 20)),
+				"difficulty":      "0x" + hex.EncodeToString(make([]byte, 32)),
+				"totalDifficulty": "0x" + hex.EncodeToString(make([]byte, 32)),
+				"size":            "0x" + hex.EncodeToString(make([]byte, 32)),
+				"nonce":           "0x" + hex.EncodeToString(make([]byte, 8)),
+				"extraData":       "0x",
+				"baseFeePerGas":   "0x" + hex.EncodeToString(make([]byte, 32)),
+				"uncles":          []string{},
+				"transactions":    []interface{}{},
+			}
 		} else {
-			result = fmt.Sprintf("0x%x", atomic.LoadUint64(&chain.BlockNumber))
+			blockNumber := atomic.LoadUint64(&chain.BlockNumber)
+
+			// Generate unique hashes for this block
+			blockHash := generateBlockHash(blockNumber, chainId, "block")
+			var parentHash string
+			if blockNumber > 0 {
+				parentHash = generateBlockHash(blockNumber-1, chainId, "block")
+			} else {
+				parentHash = "0x" + hex.EncodeToString(make([]byte, 32))
+			}
+
+			result = map[string]interface{}{
+				"number":          fmt.Sprintf("0x%x", blockNumber),
+				"hash":            blockHash,
+				"parentHash":      parentHash,
+				"timestamp":       fmt.Sprintf("0x%x", time.Now().Unix()),
+				"gasLimit":        "0x" + hex.EncodeToString(make([]byte, 32)),
+				"gasUsed":         "0x" + hex.EncodeToString(make([]byte, 32)),
+				"miner":           "0x" + hex.EncodeToString(make([]byte, 20)),
+				"difficulty":      "0x" + hex.EncodeToString(make([]byte, 32)),
+				"totalDifficulty": "0x" + hex.EncodeToString(make([]byte, 32)),
+				"size":            "0x" + hex.EncodeToString(make([]byte, 32)),
+				"nonce":           "0x" + hex.EncodeToString(make([]byte, 8)),
+				"extraData":       "0x",
+				"baseFeePerGas":   "0x" + hex.EncodeToString(make([]byte, 32)),
+				"uncles":          []string{},
+				"transactions":    []interface{}{},
+			}
 		}
 	case "eth_subscribe":
 		if len(request.Params) < 1 {

@@ -33,6 +33,7 @@ var (
 		"137":   "polygon",   // Polygon
 		"250":   "fantom",    // Fantom
 		"324":   "zksync",    // zkSync Era
+		"130":   "unichain",  // Unichain
 		"8217":  "kaia",      // kaia
 		"8453":  "base",      // Base
 		"42161": "arbitrum",  // Arbitrum One

@@ -100,24 +100,41 @@ func TestSafeAndFinalizedBlocks(t *testing.T) {
 				t.Fatalf("Unexpected error: %v", rpcResponse.Error)
 			}
 
-			// Verify result
-			resultStr, ok := rpcResponse.Result.(string)
+			// Verify result is a block object
+			resultMap, ok := rpcResponse.Result.(map[string]interface{})
 			if !ok {
-				t.Fatalf("Expected result to be string, got %T", rpcResponse.Result)
+				t.Fatalf("Expected result to be a block object, got %T", rpcResponse.Result)
+			}
+
+			// Verify the block has the required fields
+			numberStr, ok := resultMap["number"].(string)
+			if !ok {
+				t.Fatalf("Expected block number to be a string, got %T", resultMap["number"])
 			}
 
 			// Parse hex result
 			var resultBlock uint64
-			if len(resultStr) > 2 && resultStr[:2] == "0x" {
-				resultStr = resultStr[2:]
+			if len(numberStr) > 2 && numberStr[:2] == "0x" {
+				numberStr = numberStr[2:]
 			}
-			_, err = fmt.Sscanf(resultStr, "%x", &resultBlock)
+			_, err = fmt.Sscanf(numberStr, "%x", &resultBlock)
 			if err != nil {
 				t.Fatalf("Failed to parse result as hex: %v", err)
 			}
 
 			if resultBlock != tt.expectedBlock {
 				t.Errorf("Expected block %d, got %d", tt.expectedBlock, resultBlock)
+			}
+
+			// Verify other required fields exist
+			if _, ok := resultMap["hash"].(string); !ok {
+				t.Errorf("Expected block to have hash field")
+			}
+			if _, ok := resultMap["parentHash"].(string); !ok {
+				t.Errorf("Expected block to have parentHash field")
+			}
+			if _, ok := resultMap["timestamp"].(string); !ok {
+				t.Errorf("Expected block to have timestamp field")
 			}
 		})
 	}

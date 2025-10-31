@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -97,6 +98,14 @@ func (sm *SubscriptionManager) DropAllConnections() int {
 	}
 	sm.subscriptions = make(map[uint64]*Subscription)
 	return count
+}
+
+// generateBlockHashForSubscription creates a deterministic hash based on block number and chain ID
+func generateBlockHashForSubscription(blockNumber uint64, chainID string, seed string) string {
+	// Create a unique input combining block number, chain ID, and seed
+	input := fmt.Sprintf("%s-%d-%s", chainID, blockNumber, seed)
+	hash := sha256.Sum256([]byte(input))
+	return "0x" + hex.EncodeToString(hash[:])
 }
 
 // BlockNotification represents a new block notification
@@ -219,12 +228,21 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 	for _, sub := range subs {
 		var notification interface{}
 		switch chain {
-		case "1", "10", "56", "100", "137", "250", "324", "8217", "8453", "42161", "43114", "59144":
+		case "1", "10", "56", "100", "130", "137", "250", "324", "8217", "8453", "42161", "43114", "59144":
+			// Generate unique hashes for this block
+			blockHash := generateBlockHashForSubscription(blockNumber, chain, "block")
+			var parentHash string
+			if blockNumber > 0 {
+				parentHash = generateBlockHashForSubscription(blockNumber-1, chain, "block")
+			} else {
+				parentHash = "0x" + hex.EncodeToString(make([]byte, 32))
+			}
+
 			// Create block notification
 			block := BlockNotification{
-				ParentHash:      "0x" + hex.EncodeToString(make([]byte, 32)),
+				ParentHash:      parentHash,
 				Number:          fmt.Sprintf("0x%x", blockNumber),
-				Hash:            "0x" + hex.EncodeToString(make([]byte, 32)),
+				Hash:            blockHash,
 				Timestamp:       fmt.Sprintf("0x%x", time.Now().Unix()),
 				GasLimit:        "0x" + hex.EncodeToString(make([]byte, 32)),
 				GasUsed:         "0x" + hex.EncodeToString(make([]byte, 32)),
@@ -247,7 +265,7 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 					transactions[i] = Transaction{
 						Hash:             "0x" + hex.EncodeToString(make([]byte, 32)),
 						Nonce:            fmt.Sprintf("0x%x", rand.Uint64()),
-						BlockHash:        "0x" + hex.EncodeToString(make([]byte, 32)),
+						BlockHash:        blockHash, // Use the deterministic block hash
 						BlockNumber:      fmt.Sprintf("0x%x", blockNumber),
 						TransactionIndex: fmt.Sprintf("0x%x", i),
 						From:             "0x" + hex.EncodeToString(make([]byte, 20)),
