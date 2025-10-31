@@ -36,7 +36,40 @@ func handleSolanaRequest(message []byte, conn WSConn) ([]byte, error) {
 
 	switch request.Method {
 	case "getSlot":
-		result = atomic.LoadUint64(&solanaNode.SlotNumber)
+		// Check for commitment parameter
+		commitment := "processed" // Default commitment level
+		if len(request.Params) > 0 {
+			if configMap, ok := request.Params[0].(map[string]interface{}); ok {
+				if commitmentStr, ok := configMap["commitment"].(string); ok {
+					commitment = commitmentStr
+				}
+			}
+		}
+
+		// Return slot based on commitment level
+		currentSlot := atomic.LoadUint64(&solanaNode.SlotNumber)
+		switch commitment {
+		case "finalized":
+			// Finalized slot is current - 3 (rooted)
+			if currentSlot > 3 {
+				result = currentSlot - 3
+			} else {
+				result = uint64(0)
+			}
+		case "confirmed":
+			// Confirmed slot is current - 1 (roughly)
+			if currentSlot > 1 {
+				result = currentSlot - 1
+			} else {
+				result = currentSlot
+			}
+		case "processed":
+			// Processed is the latest slot
+			result = currentSlot
+		default:
+			// Default to processed (latest)
+			result = currentSlot
+		}
 	case "getVersion":
 		result = map[string]interface{}{
 			"solana-core": solanaNode.Version,
