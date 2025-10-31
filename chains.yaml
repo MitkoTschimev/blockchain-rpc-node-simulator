@@ -74,6 +74,6 @@ evm_chains:
 
 solana:
   slot_interval: 400ms     # From Chainspect: 0.4s
-  version: "1.14.17"
+  version: "1.14.10"
   feature_set: 1
   latency: 0s  # Default latency is 0

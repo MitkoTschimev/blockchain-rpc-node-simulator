@@ -7,6 +7,13 @@ import (
 )
 
 func TestEthGetLogsBlockRangeValidation(t *testing.T) {
+	// Save and restore original chainIdToName mapping
+	originalChainName := chainIdToName["1"]
+	defer func() {
+		chainIdToName["1"] = originalChainName
+		delete(supportedChains, "test")
+	}()
+
 	// Create a test chain
 	chain := &EVMChain{
 		Name:         "test",

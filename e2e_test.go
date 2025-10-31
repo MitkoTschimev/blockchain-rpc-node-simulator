@@ -57,6 +57,14 @@ func startTestServer(t *testing.T) (string, func()) {
 }
 
 func TestE2EChainConnections(t *testing.T) {
+	// Save and restore original global state
+	originalSupportedChains := supportedChains
+	originalSolanaNode := solanaNode
+	defer func() {
+		supportedChains = originalSupportedChains
+		solanaNode = originalSolanaNode
+	}()
+
 	// Initialize chain configurations for testing
 	supportedChains = map[string]*EVMChain{
 		"ethereum": {

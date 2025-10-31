@@ -9,6 +9,13 @@ import (
 
 // TestSafeAndFinalizedBlocks tests safe and finalized block functionality
 func TestSafeAndFinalizedBlocks(t *testing.T) {
+	// Save and restore original chainIdToName mapping
+	originalChainName := chainIdToName["1"]
+	defer func() {
+		chainIdToName["1"] = originalChainName
+		delete(supportedChains, "test")
+	}()
+
 	// Create a test chain
 	chain := &EVMChain{
 		Name:                 "test",
@@ -118,6 +125,13 @@ func TestSafeAndFinalizedBlocks(t *testing.T) {
 
 // TestEthGetLogsWithSafeAndFinalized tests eth_getLogs with safe and finalized blocks
 func TestEthGetLogsWithSafeAndFinalized(t *testing.T) {
+	// Save and restore original chainIdToName mapping
+	originalChainName := chainIdToName["1"]
+	defer func() {
+		chainIdToName["1"] = originalChainName
+		delete(supportedChains, "test")
+	}()
+
 	// Create a test chain
 	chain := &EVMChain{
 		Name:                 "test",
