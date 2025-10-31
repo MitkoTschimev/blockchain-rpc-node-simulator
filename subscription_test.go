@@ -459,6 +459,9 @@ func TestSubscriptionManagerWithTransactions(t *testing.T) {
 		t.Errorf("Expected slot 100, got %v", slot)
 	}
 
+	// Clear messages for Log test
+	conn.ClearMessages()
+
 	// Test Log notification format
 	logEvent := LogEvent{
 		Address:     "0x" + hex.EncodeToString(make([]byte, 20)),

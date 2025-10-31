@@ -68,6 +68,21 @@ func main() {
 				// Check if blocks are paused
 				if atomic.LoadUint32(&c.BlockIncrement) == 0 {
 					newBlock := atomic.AddUint64(&c.BlockNumber, 1)
+
+					// Update safe block (latest - 32)
+					if newBlock > 32 {
+						atomic.StoreUint64(&c.SafeBlockNumber, newBlock-32)
+					} else {
+						atomic.StoreUint64(&c.SafeBlockNumber, 0)
+					}
+
+					// Update finalized block (latest - 64)
+					if newBlock > 64 {
+						atomic.StoreUint64(&c.FinalizedBlockNumber, newBlock-64)
+					} else {
+						atomic.StoreUint64(&c.FinalizedBlockNumber, 0)
+					}
+
 					subManager.BroadcastNewBlock(chainId, newBlock)
 
 					// Generate and broadcast log events per block, spread across the block interval

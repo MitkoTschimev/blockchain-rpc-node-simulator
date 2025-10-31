@@ -90,7 +90,38 @@ func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, erro
 	case "net_listening":
 		result = true
 	case "eth_getBlockByNumber":
-		result = fmt.Sprintf("0x%x", atomic.LoadUint64(&chain.BlockNumber))
+		// Parse block parameter if provided
+		if len(request.Params) > 0 {
+			blockParam, ok := request.Params[0].(string)
+			if !ok {
+				return createErrorResponse(-32602, "Invalid block parameter", nil, request.ID)
+			}
+
+			var blockNumber uint64
+			switch blockParam {
+			case "latest", "pending":
+				blockNumber = atomic.LoadUint64(&chain.BlockNumber)
+			case "safe":
+				blockNumber = atomic.LoadUint64(&chain.SafeBlockNumber)
+			case "finalized":
+				blockNumber = atomic.LoadUint64(&chain.FinalizedBlockNumber)
+			case "earliest":
+				blockNumber = 0
+			default:
+				// Parse hex block number
+				if len(blockParam) > 2 && blockParam[:2] == "0x" {
+					blockParam = blockParam[2:]
+				}
+				parsedBlock, err := strconv.ParseUint(blockParam, 16, 64)
+				if err != nil {
+					return createErrorResponse(-32602, "Invalid block number", nil, request.ID)
+				}
+				blockNumber = parsedBlock
+			}
+			result = fmt.Sprintf("0x%x", blockNumber)
+		} else {
+			result = fmt.Sprintf("0x%x", atomic.LoadUint64(&chain.BlockNumber))
+		}
 	case "eth_subscribe":
 		if len(request.Params) < 1 {
 			return createErrorResponse(-32602, "Invalid params", nil, request.ID)
@@ -192,11 +223,16 @@ func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, erro
 			if !ok {
 				return createErrorResponse(-32602, "Invalid fromBlock parameter", nil, request.ID)
 			}
-			if fromBlockStr == "latest" || fromBlockStr == "pending" {
+			switch fromBlockStr {
+			case "latest", "pending":
 				fromBlock = currentBlock
-			} else if fromBlockStr == "earliest" {
+			case "safe":
+				fromBlock = atomic.LoadUint64(&chain.SafeBlockNumber)
+			case "finalized":
+				fromBlock = atomic.LoadUint64(&chain.FinalizedBlockNumber)
+			case "earliest":
 				fromBlock = 0
-			} else {
+			default:
 				// Parse hex block number
 				if len(fromBlockStr) > 2 && fromBlockStr[:2] == "0x" {
 					fromBlockStr = fromBlockStr[2:]
@@ -217,11 +253,16 @@ func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, erro
 			if !ok {
 				return createErrorResponse(-32602, "Invalid toBlock parameter", nil, request.ID)
 			}
-			if toBlockStr == "latest" || toBlockStr == "pending" {
+			switch toBlockStr {
+			case "latest", "pending":
 				toBlock = currentBlock
-			} else if toBlockStr == "earliest" {
+			case "safe":
+				toBlock = atomic.LoadUint64(&chain.SafeBlockNumber)
+			case "finalized":
+				toBlock = atomic.LoadUint64(&chain.FinalizedBlockNumber)
+			case "earliest":
 				toBlock = 0
-			} else {
+			default:
 				// Parse hex block number
 				if len(toBlockStr) > 2 && toBlockStr[:2] == "0x" {
 					toBlockStr = toBlockStr[2:]

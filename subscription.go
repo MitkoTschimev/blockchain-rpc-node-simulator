@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -203,11 +204,16 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 	sm.mu.RLock()
 	subs := make([]*Subscription, 0)
 	for _, sub := range sm.subscriptions {
-		if sub.Type == chain && (sub.Method == "newHeads" || sub.Method == "newHeadsWithTx" || sub.Method == "slotNotification") {
+		if sub.Type == chain && (sub.Method == "newHeads" || sub.Method == "newHeadsWithTx" || sub.Method == "logs" || sub.Method == "slotNotification") {
 			subs = append(subs, sub)
 		}
 	}
 	sm.mu.RUnlock()
+
+	// Sort subscriptions by ID to ensure deterministic order
+	sort.Slice(subs, func(i, j int) bool {
+		return subs[i].ID < subs[j].ID
+	})
 
 	// Process each subscription outside the lock
 	for _, sub := range subs {

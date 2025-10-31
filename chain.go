@@ -20,18 +20,20 @@ type Chain interface {
 }
 
 type EVMChain struct {
-	Name             string        `yaml:"name"`
-	ChainID          string        `yaml:"chain_id"`
-	BlockNumber      uint64        `yaml:"block_number"`
-	BlockIncrement   uint32        `yaml:"block_increment"`
-	BlockInterrupt   uint32        `yaml:"block_interrupt"`
-	BlockInterval    time.Duration `yaml:"block_interval"`
-	ResponseTimeout  time.Duration
-	Latency          time.Duration `yaml:"latency"`
-	ErrorProbability float64       `yaml:"error_probability"` // Deprecated: use ErrorConfigs instead
-	ErrorConfigs     []ErrorConfig `yaml:"error_configs" json:"error_configs"` // Configurable error simulation
-	LogsPerBlock     int           `yaml:"logs_per_block"`    // Number of log events to generate per block
-	LogIndex         uint64        // Incremental counter for log events
+	Name                 string        `yaml:"name"`
+	ChainID              string        `yaml:"chain_id"`
+	BlockNumber          uint64        `yaml:"block_number"`          // Latest block number
+	SafeBlockNumber      uint64        `yaml:"safe_block_number"`      // Safe block (typically latest - 32 slots)
+	FinalizedBlockNumber uint64        `yaml:"finalized_block_number"` // Finalized block (typically latest - 64 slots)
+	BlockIncrement       uint32        `yaml:"block_increment"`
+	BlockInterrupt       uint32        `yaml:"block_interrupt"`
+	BlockInterval        time.Duration `yaml:"block_interval"`
+	ResponseTimeout      time.Duration
+	Latency              time.Duration `yaml:"latency"`
+	ErrorProbability     float64       `yaml:"error_probability"` // Deprecated: use ErrorConfigs instead
+	ErrorConfigs         []ErrorConfig `yaml:"error_configs" json:"error_configs"` // Configurable error simulation
+	LogsPerBlock         int           `yaml:"logs_per_block"`    // Number of log events to generate per block
+	LogIndex             uint64        // Incremental counter for log events
 }
 
 type SolanaNode struct {
