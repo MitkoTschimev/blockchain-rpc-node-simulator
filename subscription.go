@@ -228,7 +228,7 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 	for _, sub := range subs {
 		var notification interface{}
 		switch chain {
-		case "1", "10", "56", "100", "130", "137", "250", "324", "8217", "8453", "42161", "43114", "59144":
+		case "1", "10", "56", "100", "130", "137", "146", "250", "324", "8217", "8453", "42161", "43114", "59144":
 			// Generate unique hashes for this block
 			blockHash := generateBlockHashForSubscription(blockNumber, chain, "block")
 			var parentHash string

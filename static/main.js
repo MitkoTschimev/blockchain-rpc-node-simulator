@@ -5,6 +5,7 @@ class RPCSimulator {
         this.nextId = 1;
         this.setupEventListeners();
         this.setupConnectionTracking();
+        this.setupBlockTracking();
     }
 
     setupEventListeners() {
@@ -431,6 +432,155 @@ class RPCSimulator {
         connect();
     }
 
+    setupBlockTracking() {
+        let retryCount = 0;
+        const maxRetries = 5;
+        const retryDelay = 2000; // 2 seconds
+
+        const connect = () => {
+            const evtSource = new EventSource('/sse/blocks');
+
+            evtSource.onopen = () => {
+                retryCount = 0; // Reset retry count on successful connection
+                this.log('Block tracking active', 'info');
+                document.getElementById('latestBlocks').classList.remove('disconnected');
+            };
+
+            evtSource.onmessage = (event) => {
+                try {
+                    const blocks = JSON.parse(event.data);
+                    this.updateLatestBlocks(blocks);
+                } catch (error) {
+                    this.log('Error parsing block data: ' + error.message, 'error');
+                }
+            };
+
+            evtSource.onerror = (error) => {
+                document.getElementById('latestBlocks').classList.add('disconnected');
+                this.log('Block tracking error: ' + (error.message || 'Connection lost'), 'error');
+                evtSource.close();
+
+                // Attempt to reconnect with exponential backoff
+                if (retryCount < maxRetries) {
+                    const delay = retryDelay * Math.pow(2, retryCount);
+                    retryCount++;
+                    this.log(`Retrying block tracking in ${delay/1000} seconds... (Attempt ${retryCount}/${maxRetries})`, 'warning');
+                    setTimeout(connect, delay);
+                } else {
+                    this.log('Failed to establish block tracking after multiple attempts', 'error');
+                }
+            };
+        };
+
+        // Add styles for disconnected state
+        const style = document.createElement('style');
+        style.textContent = `
+            #latestBlocks.disconnected {
+                opacity: 0.6;
+                position: relative;
+            }
+            #latestBlocks.disconnected::after {
+                content: 'Reconnecting...';
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: var(--warning);
+                color: var(--dark);
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 0.8rem;
+                font-weight: 500;
+            }
+            .block-updated {
+                animation: blockUpdate 0.3s ease-in-out;
+            }
+            @keyframes blockUpdate {
+                0% { background-color: #fff; }
+                50% { background-color: #2ecc71; }
+                100% { background-color: #fff; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Start the connection
+        connect();
+    }
+
+    updateLatestBlocks(blocks) {
+        const tbody = document.getElementById('latestBlocksBody');
+
+        // Store previous block numbers for animation
+        const previousBlocks = {};
+        tbody.querySelectorAll('tr').forEach(tr => {
+            const chainId = tr.dataset.chainId;
+            const blockNum = tr.querySelector('.block-number')?.textContent;
+            if (chainId && blockNum) {
+                previousBlocks[chainId] = blockNum;
+            }
+        });
+
+        tbody.innerHTML = '';
+
+        // Chain name mapping
+        const chainNames = {
+            '1': 'Ethereum',
+            '10': 'Optimism',
+            '56': 'Binance',
+            '100': 'Gnosis',
+            '130': 'Unichain',
+            '137': 'Polygon',
+            '146': 'Sonic',
+            '250': 'Fantom',
+            '324': 'Zksync',
+            '8217': 'Kaia',
+            '8453': 'Base',
+            '42161': 'Arbitrum',
+            '43114': 'Avalanche',
+            '59144': 'Linea',
+            '501': 'Solana'
+        };
+
+        // Sort chains by name
+        const sortedChains = Object.entries(blocks).sort((a, b) => {
+            const nameA = chainNames[a[0]] || a[0];
+            const nameB = chainNames[b[0]] || b[0];
+            return nameA.localeCompare(nameB);
+        });
+
+        // Create table rows
+        sortedChains.forEach(([chainId, block]) => {
+            const tr = document.createElement('tr');
+            tr.dataset.chainId = chainId;
+
+            const blockNumber = block.number.toString();
+            const isUpdated = previousBlocks[chainId] && previousBlocks[chainId] !== blockNumber;
+            const timestamp = new Date(block.timestamp * 1000).toLocaleTimeString();
+
+            // Truncate hash for display
+            const hashDisplay = block.hash ?
+                (block.hash.substring(0, 10) + '...' + block.hash.substring(block.hash.length - 8)) :
+                'N/A';
+
+            tr.className = isUpdated ? 'block-updated' : '';
+            tr.innerHTML = `
+                <td style="padding: 8px; border-bottom: 1px solid #ddd;">
+                    ${chainNames[chainId] || chainId}
+                </td>
+                <td style="text-align: right; padding: 8px; border-bottom: 1px solid #ddd;">
+                    <span class="block-number">${blockNumber}</span>
+                </td>
+                <td style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd; font-family: monospace; font-size: 0.85rem;">
+                    <span title="${block.hash}">${hashDisplay}</span>
+                </td>
+                <td style="text-align: right; padding: 8px; border-bottom: 1px solid #ddd; font-size: 0.85rem;">
+                    ${timestamp}
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
     updateConnectionCounts(connections) {
         const tbody = document.getElementById('connectionCountsBody');
         tbody.innerHTML = '';
@@ -665,7 +815,9 @@ const chainIdToName = {
     '10': 'optimism',
     '56': 'binance',
     '100': 'gnosis',
+    '130': 'unichain',
     '137': 'polygon',
+    '146': 'sonic',
     '250': 'fantom',
     '324': 'zksync',
     '8217': 'kaia',

@@ -77,6 +77,12 @@ evm_chains:
     block_interval: 2s      # Default
     latency: 0s
     logs_per_block: 5
+  sonic:
+    name: sonic
+    chain_id: "0x92"  # 146
+    block_interval: 2s      # Default
+    latency: 0s
+    logs_per_block: 5
 
 solana:
   slot_interval: 400ms     # From Chainspect: 0.4s

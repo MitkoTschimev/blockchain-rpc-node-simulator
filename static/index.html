@@ -259,7 +259,9 @@
                         <option value="10">Optimism (10)</option>
                         <option value="56">Binance (56)</option>
                         <option value="100">Gnosis (100)</option>
+                        <option value="130">Unichain (130)</option>
                         <option value="137">Polygon (137)</option>
+                        <option value="146">Sonic (146)</option>
                         <option value="250">Fantom (250)</option>
                         <option value="324">zkSync Era (324)</option>
                         <option value="8217">Kaia (8217)</option>
@@ -425,6 +427,25 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 1.5rem;">
+            <h2>Latest Blocks</h2>
+            <div id="latestBlocks">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left; padding: 8px; border-bottom: 2px solid #ddd;">Chain</th>
+                            <th style="text-align: right; padding: 8px; border-bottom: 2px solid #ddd;">Block Number</th>
+                            <th style="text-align: left; padding: 8px; border-bottom: 2px solid #ddd;">Block Hash</th>
+                            <th style="text-align: right; padding: 8px; border-bottom: 2px solid #ddd;">Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="latestBlocksBody">
+                        <!-- Latest blocks will be inserted here -->
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>

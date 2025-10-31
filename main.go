@@ -34,6 +34,7 @@ var (
 		"250":   "fantom",    // Fantom
 		"324":   "zksync",    // zkSync Era
 		"130":   "unichain",  // Unichain
+		"146":   "sonic",     // Sonic
 		"8217":  "kaia",      // kaia
 		"8453":  "base",      // Base
 		"42161": "arbitrum",  // Arbitrum One
@@ -146,6 +147,7 @@ func main() {
 
 	// SSE endpoints
 	mux.HandleFunc("/sse/connections", handleConnectionsSSE)
+	mux.HandleFunc("/sse/blocks", handleBlocksSSE)
 
 	// Control endpoints
 	handleControlEndpoints(mux)
@@ -247,6 +249,105 @@ func handleConnectionsSSE(w http.ResponseWriter, r *http.Request) {
 		case <-ticker.C:
 			counts := connTracker.GetConnections()
 			data, err := json.Marshal(counts)
+			if err != nil {
+				continue
+			}
+			fmt.Fprintf(w, "data: %s\n\n", data)
+			flusher.Flush()
+		}
+	}
+}
+
+func handleBlocksSSE(w http.ResponseWriter, r *http.Request) {
+	// Set headers for SSE
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// Create a channel for client disconnection
+	clientGone := r.Context().Done()
+	ticker := time.NewTicker(500 * time.Millisecond) // Update twice per second
+	defer ticker.Stop()
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	// Send initial block data
+	blocks := make(map[string]map[string]interface{})
+	for chainId, chainName := range chainIdToName {
+		if chainId == "501" {
+			// Solana
+			blocks[chainId] = map[string]interface{}{
+				"chain":     "solana",
+				"chainId":   chainId,
+				"number":    atomic.LoadUint64(&solanaNode.SlotNumber),
+				"hash":      "",
+				"timestamp": time.Now().Unix(),
+			}
+		} else {
+			// EVM chains
+			chain := supportedChains[chainName]
+			if chain != nil {
+				blockNumber := atomic.LoadUint64(&chain.BlockNumber)
+				blockHash := generateBlockHash(blockNumber, chainId, "block")
+				blocks[chainId] = map[string]interface{}{
+					"chain":     chainName,
+					"chainId":   chainId,
+					"number":    blockNumber,
+					"hash":      blockHash,
+					"timestamp": time.Now().Unix(),
+				}
+			}
+		}
+	}
+
+	data, err := json.Marshal(blocks)
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprintf(w, "data: %s\n\n", data)
+	flusher.Flush()
+
+	// Keep sending updates
+	for {
+		select {
+		case <-clientGone:
+			return // Client disconnected
+		case <-ticker.C:
+			blocks := make(map[string]map[string]interface{})
+			for chainId, chainName := range chainIdToName {
+				if chainId == "501" {
+					// Solana
+					blocks[chainId] = map[string]interface{}{
+						"chain":     "solana",
+						"chainId":   chainId,
+						"number":    atomic.LoadUint64(&solanaNode.SlotNumber),
+						"hash":      "",
+						"timestamp": time.Now().Unix(),
+					}
+				} else {
+					// EVM chains
+					chain := supportedChains[chainName]
+					if chain != nil {
+						blockNumber := atomic.LoadUint64(&chain.BlockNumber)
+						blockHash := generateBlockHash(blockNumber, chainId, "block")
+						blocks[chainId] = map[string]interface{}{
+							"chain":     chainName,
+							"chainId":   chainId,
+							"number":    blockNumber,
+							"hash":      blockHash,
+							"timestamp": time.Now().Unix(),
+						}
+					}
+				}
+			}
+
+			data, err := json.Marshal(blocks)
 			if err != nil {
 				continue
 			}
