@@ -204,7 +204,7 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 	sm.mu.RLock()
 	subs := make([]*Subscription, 0)
 	for _, sub := range sm.subscriptions {
-		if sub.Type == chain && (sub.Method == "newHeads" || sub.Method == "newHeadsWithTx" || sub.Method == "logs" || sub.Method == "slotNotification") {
+		if sub.Type == chain && (sub.Method == "newHeads" || sub.Method == "newHeadsWithTx" || sub.Method == "logs" || sub.Method == "slotNotification" || sub.Method == "rootNotification") {
 			subs = append(subs, sub)
 		}
 	}
@@ -284,17 +284,39 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 			if blockNumber > 3 {
 				root = blockNumber - 3
 			}
-			notification = JSONRPCNotification{
-				JsonRPC: "2.0",
-				Method:  "slotNotification",
-				Params: SubscriptionParams{
-					Subscription: sub.ID, // Solana uses numeric IDs
-					Result: map[string]interface{}{
-						"parent": blockNumber - 1,
-						"root":   root,
-						"slot":   blockNumber,
+
+			// Handle different subscription types for Solana
+			if sub.Method == "slotNotification" {
+				// Regular slot notification - sent for every slot
+				notification = JSONRPCNotification{
+					JsonRPC: "2.0",
+					Method:  "slotNotification",
+					Params: SubscriptionParams{
+						Subscription: sub.ID, // Solana uses numeric IDs
+						Result: map[string]interface{}{
+							"parent": blockNumber - 1,
+							"root":   root,
+							"slot":   blockNumber,
+						},
 					},
-				},
+				}
+			} else if sub.Method == "rootNotification" {
+				// Root notification - only send for finalized (rooted) slots
+				// Only broadcast if this slot is now the root (finalized)
+				// This means we broadcast the root slot, not the current slot
+				if root > 0 {
+					notification = JSONRPCNotification{
+						JsonRPC: "2.0",
+						Method:  "rootNotification",
+						Params: SubscriptionParams{
+							Subscription: sub.ID,
+							Result:       root, // Just the rooted slot number
+						},
+					}
+				} else {
+					// Skip if no root yet
+					continue
+				}
 			}
 		default:
 			// Skip broadcasting for unknown chains

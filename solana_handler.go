@@ -49,10 +49,18 @@ func handleSolanaRequest(message []byte, conn WSConn) ([]byte, error) {
 		if err != nil {
 			return createErrorResponse(-32603, err.Error(), nil, request.ID)
 		}
-		log.Printf("New Solana subscription created: ID=%d", subID)
+		log.Printf("New Solana slot subscription created: ID=%d", subID)
 		result = subID // Solana uses numeric IDs
 
-	case "slotUnsubscribe":
+	case "rootSubscribe":
+		subID, err := subManager.Subscribe("501", conn, "rootNotification")
+		if err != nil {
+			return createErrorResponse(-32603, err.Error(), nil, request.ID)
+		}
+		log.Printf("New Solana root subscription created: ID=%d", subID)
+		result = subID // Solana uses numeric IDs
+
+	case "slotUnsubscribe", "rootUnsubscribe":
 		if len(request.Params) < 1 {
 			return createErrorResponse(-32602, "Invalid params", nil, request.ID)
 		}
@@ -71,7 +79,7 @@ func handleSolanaRequest(message []byte, conn WSConn) ([]byte, error) {
 			return createErrorResponse(-32602, "Invalid subscription ID type", nil, request.ID)
 		}
 
-		err := subManager.Unsubscribe(subscriptionID)
+		err = subManager.Unsubscribe(subscriptionID)
 		if err != nil {
 			return createErrorResponse(-32603, err.Error(), nil, request.ID)
 		}
