@@ -296,6 +296,15 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 					},
 				},
 			}
+		default:
+			// Skip broadcasting for unknown chains
+			log.Printf("Warning: Unknown chain ID %s in BroadcastNewBlock", chain)
+			continue
+		}
+
+		// Skip if notification is nil (shouldn't happen with default case, but safety check)
+		if notification == nil {
+			continue
 		}
 
 		data, err := json.Marshal(notification)
