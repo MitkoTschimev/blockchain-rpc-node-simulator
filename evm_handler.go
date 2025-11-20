@@ -81,6 +81,26 @@ func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, erro
 		return createErrorResponse(errorConfig.Code, errorConfig.Message, data, request.ID)
 	}
 
+	// Custom response override
+	if chain.CustomResponseEnabled && chain.CustomResponse != "" {
+		// Check if we should apply custom response to this method
+		applyCustomResponse := len(chain.CustomResponseMethods) == 0 // Apply to all if no methods specified
+		if !applyCustomResponse {
+			// Check if current method is in the list
+			for _, method := range chain.CustomResponseMethods {
+				if method == request.Method {
+					applyCustomResponse = true
+					break
+				}
+			}
+		}
+
+		if applyCustomResponse {
+			log.Printf("Returning custom response for chain %s, method %s", chainName, request.Method)
+			return []byte(chain.CustomResponse), nil
+		}
+	}
+
 	var result interface{}
 	var err error
 

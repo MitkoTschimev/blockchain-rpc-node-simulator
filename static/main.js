@@ -37,6 +37,10 @@ class RPCSimulator {
         document.getElementById('clearErrorsBtn').addEventListener('click', () => this.clearErrors());
         document.getElementById('errorTemplate').addEventListener('change', (e) => this.selectErrorTemplate(e.target.value));
 
+        // Add custom response event listeners
+        document.getElementById('setCustomResponseBtn').addEventListener('click', () => this.setCustomResponse());
+        document.getElementById('clearCustomResponseBtn').addEventListener('click', () => this.clearCustomResponse());
+
         // Load predefined errors and current error configs
         this.loadPredefinedErrors();
         this.loadErrorConfigs();
@@ -807,6 +811,76 @@ class RPCSimulator {
                 </div>
             `;
         }).join('');
+    }
+
+    async setCustomResponse() {
+        const chainId = document.getElementById('chainSelect').value;
+        const chainName = chainId === '501' ? 'solana' : chainIdToName[chainId];
+
+        const customResponseJson = document.getElementById('customResponseJson').value.trim();
+        const methodsStr = document.getElementById('customResponseMethods').value.trim();
+
+        if (!customResponseJson) {
+            this.log('Please enter a custom JSON response', 'error');
+            return;
+        }
+
+        // Validate JSON
+        try {
+            JSON.parse(customResponseJson);
+        } catch (e) {
+            this.log('Invalid JSON format: ' + e.message, 'error');
+            return;
+        }
+
+        const methods = methodsStr ? methodsStr.split(',').map(m => m.trim()).filter(m => m) : [];
+
+        const response = await this.sendControlRequest('/control/response/custom', {
+            chain: chainName,
+            custom_response: customResponseJson,
+            enabled: true,
+            methods: methods
+        });
+
+        if (response.ok) {
+            const methodsText = methods.length > 0 ? ` for methods: ${methods.join(', ')}` : ' for all methods';
+            this.log('Custom response enabled' + methodsText);
+            this.updateCustomResponseStatus(true, methods);
+        } else {
+            const errorText = await response.text();
+            this.log(`Failed to set custom response: ${errorText}`, 'error');
+        }
+    }
+
+    async clearCustomResponse() {
+        const chainId = document.getElementById('chainSelect').value;
+        const chainName = chainId === '501' ? 'solana' : chainIdToName[chainId];
+
+        const response = await this.sendControlRequest('/control/response/custom', {
+            chain: chainName,
+            custom_response: '',
+            enabled: false,
+            methods: []
+        });
+
+        if (response.ok) {
+            this.log('Custom response disabled');
+            this.updateCustomResponseStatus(false, []);
+        } else {
+            this.log(`Failed to clear custom response: ${response.statusText}`, 'error');
+        }
+    }
+
+    updateCustomResponseStatus(enabled, methods) {
+        const statusDiv = document.getElementById('customResponseStatus');
+        if (enabled) {
+            const methodsText = methods.length > 0
+                ? `<br><small>Methods: ${methods.join(', ')}</small>`
+                : '<br><small>Applies to all methods</small>';
+            statusDiv.innerHTML = `<span style="color: var(--success); font-weight: bold;">Status: Enabled</span>${methodsText}`;
+        } else {
+            statusDiv.innerHTML = '<span style="color: #666;">Status: Disabled</span>';
+        }
     }
 }
 

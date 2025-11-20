@@ -30,10 +30,13 @@ type EVMChain struct {
 	BlockInterval        time.Duration `yaml:"block_interval"`
 	ResponseTimeout      time.Duration
 	Latency              time.Duration `yaml:"latency"`
-	ErrorProbability     float64       `yaml:"error_probability"` // Deprecated: use ErrorConfigs instead
-	ErrorConfigs         []ErrorConfig `yaml:"error_configs" json:"error_configs"` // Configurable error simulation
-	LogsPerBlock         int           `yaml:"logs_per_block"`    // Number of log events to generate per block
-	LogIndex             uint64        // Incremental counter for log events
+	ErrorProbability      float64       `yaml:"error_probability"` // Deprecated: use ErrorConfigs instead
+	ErrorConfigs          []ErrorConfig `yaml:"error_configs" json:"error_configs"` // Configurable error simulation
+	LogsPerBlock          int           `yaml:"logs_per_block"`    // Number of log events to generate per block
+	LogIndex              uint64        // Incremental counter for log events
+	CustomResponse        string        // JSON response to return instead of normal response
+	CustomResponseEnabled bool          // Whether to use custom response
+	CustomResponseMethods []string      // Specific methods to apply custom response to (empty = all methods)
 }
 
 type SolanaNode struct {

@@ -399,6 +399,27 @@
                     </div>
                 </div>
             </div>
+
+            <div class="card">
+                <h2>Custom Response</h2>
+                <div class="form-group">
+                    <label for="customResponseJson">Custom JSON Response</label>
+                    <textarea id="customResponseJson" class="form-control" rows="6" placeholder='{"jsonrpc":"2.0","result":"custom value","id":1}'></textarea>
+                    <small style="color: #666; font-size: 0.85rem;">Enter a valid JSON-RPC response</small>
+                </div>
+                <div class="form-group">
+                    <label for="customResponseMethods">Apply to Methods (optional)</label>
+                    <input type="text" id="customResponseMethods" class="form-control" placeholder="e.g., eth_call, eth_getBalance (leave empty for all)">
+                    <small style="color: #666; font-size: 0.85rem;">Comma-separated method names</small>
+                </div>
+                <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                    <button id="setCustomResponseBtn" class="btn btn-success">Enable</button>
+                    <button id="clearCustomResponseBtn" class="btn btn-danger">Disable</button>
+                </div>
+                <div id="customResponseStatus" style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
+                    Status: Disabled
+                </div>
+            </div>
         </div>
 
         <div class="grid" style="margin-top: 1.5rem;">

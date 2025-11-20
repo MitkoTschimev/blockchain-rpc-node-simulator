@@ -56,6 +56,8 @@ func handleControlEndpoints(mux *http.ServeMux) {
 	mux.HandleFunc("/control/errors/clear", handleClearErrorConfigs)
 	mux.HandleFunc("/control/errors/list", handleListErrorConfigs)
 	mux.HandleFunc("/control/errors/predefined", handleListPredefinedErrors)
+	// Custom response endpoint
+	mux.HandleFunc("/control/response/custom", handleSetCustomResponse)
 }
 
 func jsonResponse(w http.ResponseWriter, status int, response interface{}) {
@@ -862,4 +864,57 @@ func handleListPredefinedErrors(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusOK, map[string]interface{}{
 		"predefined_errors": PredefinedErrors,
 	})
+}
+
+// handleSetCustomResponse sets or clears a custom response for a chain
+func handleSetCustomResponse(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		Chain          string   `json:"chain"`
+		CustomResponse string   `json:"custom_response"`
+		Enabled        bool     `json:"enabled"`
+		Methods        []string `json:"methods"` // Specific methods to apply custom response to (empty = all)
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate that custom_response is valid JSON if enabled
+	if request.Enabled && request.CustomResponse != "" {
+		var testJSON interface{}
+		if err := json.Unmarshal([]byte(request.CustomResponse), &testJSON); err != nil {
+			http.Error(w, "custom_response must be valid JSON", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Set custom response for the chain
+	if chain, ok := supportedChains[request.Chain]; ok {
+		chain.CustomResponse = request.CustomResponse
+		chain.CustomResponseEnabled = request.Enabled
+		chain.CustomResponseMethods = request.Methods
+
+		if request.Enabled {
+			if len(request.Methods) > 0 {
+				log.Printf("Enabled custom response for chain %s (methods: %v)", request.Chain, request.Methods)
+			} else {
+				log.Printf("Enabled custom response for chain %s (all methods)", request.Chain)
+			}
+		} else {
+			log.Printf("Disabled custom response for chain %s", request.Chain)
+		}
+
+		jsonResponse(w, http.StatusOK, map[string]interface{}{
+			"status":  "ok",
+			"message": "Custom response configuration updated successfully",
+		})
+	} else {
+		http.Error(w, "Chain not found", http.StatusNotFound)
+	}
 }
