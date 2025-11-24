@@ -187,5 +187,11 @@ func ShouldSimulateError(errorConfigs []ErrorConfig, method string) *ErrorConfig
 		}
 	}
 
+	// Fallback: if we didn't match (shouldn't happen with proper probabilities),
+	// return the last error if totalProb >= roll
+	if len(applicableErrors) > 0 && totalProb >= roll {
+		return &applicableErrors[len(applicableErrors)-1]
+	}
+
 	return nil
 }
