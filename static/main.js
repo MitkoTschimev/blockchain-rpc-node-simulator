@@ -697,6 +697,7 @@ class RPCSimulator {
                     document.getElementById('customErrorMessage').value = error.message;
                     document.getElementById('customErrorData').value = error.data || '';
                     document.getElementById('customErrorProbability').value = '0.1';
+                    document.getElementById('customErrorDelay').value = error.delay_ms || '';
                     document.getElementById('customErrorMethods').value = error.methods ? error.methods.join(', ') : '';
                 }
             }
@@ -713,6 +714,7 @@ class RPCSimulator {
         const message = document.getElementById('customErrorMessage').value;
         const data = document.getElementById('customErrorData').value;
         const probability = parseFloat(document.getElementById('customErrorProbability').value);
+        const delayStr = document.getElementById('customErrorDelay').value;
         const methodsStr = document.getElementById('customErrorMethods').value;
 
         if (!code || !message || isNaN(probability)) {
@@ -726,6 +728,7 @@ class RPCSimulator {
         }
 
         const methods = methodsStr ? methodsStr.split(',').map(m => m.trim()).filter(m => m) : [];
+        const delayMs = delayStr ? parseInt(delayStr) : 0;
 
         const errorConfig = {
             code: code,
@@ -734,6 +737,11 @@ class RPCSimulator {
             probability: probability,
             methods: methods
         };
+
+        // Only include delay_ms if it's provided and > 0
+        if (delayMs > 0) {
+            errorConfig.delay_ms = delayMs;
+        }
 
         const response = await this.sendControlRequest('/control/errors/add', {
             chain: chainName,
@@ -748,6 +756,7 @@ class RPCSimulator {
             document.getElementById('customErrorMessage').value = '';
             document.getElementById('customErrorData').value = '';
             document.getElementById('customErrorProbability').value = '';
+            document.getElementById('customErrorDelay').value = '';
             document.getElementById('customErrorMethods').value = '';
             document.getElementById('errorTemplate').value = '';
         } else {
@@ -800,11 +809,15 @@ class RPCSimulator {
             const methodsText = error.methods && error.methods.length > 0
                 ? `<br><small>Methods: ${error.methods.join(', ')}</small>`
                 : '';
+            const delayText = error.delay_ms && error.delay_ms > 0
+                ? `<br><small>Delay: ${error.delay_ms}ms</small>`
+                : '';
             return `
                 <div style="padding: 0.5rem; background: #f5f5f5; margin-bottom: 0.5rem; border-radius: 4px; display: flex; justify-content: space-between; align-items: start;">
                     <div>
                         <strong>${error.message}</strong> (${error.code})
                         <br><small>Probability: ${(error.probability * 100).toFixed(1)}%</small>
+                        ${delayText}
                         ${methodsText}
                     </div>
                     <button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="simulator.removeError(${index})">Remove</button>

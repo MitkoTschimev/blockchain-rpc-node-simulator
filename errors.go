@@ -9,8 +9,9 @@ type ErrorConfig struct {
 	Code        int      `json:"code" yaml:"code"`
 	Message     string   `json:"message" yaml:"message"`
 	Data        string   `json:"data,omitempty" yaml:"data,omitempty"`
-	Probability float64  `json:"probability" yaml:"probability"` // 0.0 to 1.0
-	Methods     []string `json:"methods,omitempty" yaml:"methods,omitempty"` // If empty, applies to all methods
+	Probability float64  `json:"probability" yaml:"probability"`               // 0.0 to 1.0
+	Methods     []string `json:"methods,omitempty" yaml:"methods,omitempty"`   // If empty, applies to all methods
+	DelayMs     int      `json:"delay_ms,omitempty" yaml:"delay_ms,omitempty"` // Delay in milliseconds before returning error (0 = no delay)
 }
 
 // PredefinedErrors contains common Ethereum JSON-RPC errors

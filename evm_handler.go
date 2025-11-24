@@ -74,6 +74,10 @@ func handleEVMRequest(message []byte, conn WSConn, chainId string) ([]byte, erro
 
 	// New configurable error simulation
 	if errorConfig := ShouldSimulateError(chain.ErrorConfigs, request.Method); errorConfig != nil {
+		// Apply delay if configured
+		if errorConfig.DelayMs > 0 {
+			time.Sleep(time.Duration(errorConfig.DelayMs) * time.Millisecond)
+		}
 		var data interface{}
 		if errorConfig.Data != "" {
 			data = errorConfig.Data

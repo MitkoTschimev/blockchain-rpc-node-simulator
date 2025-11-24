@@ -738,13 +738,19 @@ func handleAddErrorConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate delay (must be non-negative if provided)
+	if request.ErrorConfig.DelayMs < 0 {
+		http.Error(w, "Error delay must be non-negative", http.StatusBadRequest)
+		return
+	}
+
 	// Add error config to the chain
 	if chain, ok := supportedChains[request.Chain]; ok {
 		chain.ErrorConfigs = append(chain.ErrorConfigs, request.ErrorConfig)
 		log.Printf("Added error config (code: %d, probability: %.2f) to chain %s",
 			request.ErrorConfig.Code, request.ErrorConfig.Probability, request.Chain)
 		jsonResponse(w, http.StatusOK, map[string]interface{}{
-			"status": "ok",
+			"status":  "ok",
 			"message": "Error configuration added successfully",
 		})
 	} else {
@@ -780,7 +786,7 @@ func handleRemoveErrorConfig(w http.ResponseWriter, r *http.Request) {
 		chain.ErrorConfigs = append(chain.ErrorConfigs[:request.Index], chain.ErrorConfigs[request.Index+1:]...)
 		log.Printf("Removed error config at index %d from chain %s", request.Index, request.Chain)
 		jsonResponse(w, http.StatusOK, map[string]interface{}{
-			"status": "ok",
+			"status":  "ok",
 			"message": "Error configuration removed successfully",
 		})
 	} else {
@@ -809,7 +815,7 @@ func handleClearErrorConfigs(w http.ResponseWriter, r *http.Request) {
 		chain.ErrorConfigs = []ErrorConfig{}
 		log.Printf("Cleared all error configs from chain %s", request.Chain)
 		jsonResponse(w, http.StatusOK, map[string]interface{}{
-			"status": "ok",
+			"status":  "ok",
 			"message": "All error configurations cleared successfully",
 		})
 	} else {
