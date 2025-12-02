@@ -108,23 +108,52 @@ func generateBlockHashForSubscription(blockNumber uint64, chainID string, seed s
 	return "0x" + hex.EncodeToString(hash[:])
 }
 
+// generateValidHexString generates a hex string that matches the pattern ^0x(0|[1-9a-f][0-9a-f]*)$
+// This ensures no leading zeros except for "0x0"
+func generateValidHexString(byteLength int) string {
+	if byteLength == 0 {
+		return "0x0"
+	}
+	// Generate random bytes
+	bytes := make([]byte, byteLength)
+	for i := range bytes {
+		bytes[i] = byte(rand.Intn(256))
+	}
+	// Ensure first byte is non-zero to avoid leading zeros
+	if bytes[0] == 0 {
+		bytes[0] = byte(rand.Intn(255) + 1)
+	}
+	hexStr := hex.EncodeToString(bytes)
+	// Remove leading zeros after the first non-zero digit
+	hexStr = strings.TrimLeft(hexStr, "0")
+	if hexStr == "" {
+		hexStr = "0"
+	}
+	return "0x" + hexStr
+}
+
 // BlockNotification represents a new block notification
 type BlockNotification struct {
-	ParentHash      string        `json:"parentHash"`
-	Number          string        `json:"number"`
-	Hash            string        `json:"hash"`
-	Timestamp       string        `json:"timestamp"`
-	GasLimit        string        `json:"gasLimit"`
-	GasUsed         string        `json:"gasUsed"`
-	Miner           string        `json:"miner"`
-	Difficulty      string        `json:"difficulty"`
-	TotalDifficulty string        `json:"totalDifficulty"`
-	Size            string        `json:"size"`
-	Nonce           string        `json:"nonce"`
-	ExtraData       string        `json:"extraData"`
-	BaseFeePerGas   string        `json:"baseFeePerGas"`
-	Uncles          []string      `json:"uncles"`
-	Transactions    []interface{} `json:"transactions"`
+	ParentHash       string        `json:"parentHash"`
+	Number           string        `json:"number"`
+	Hash             string        `json:"hash"`
+	Timestamp        string        `json:"timestamp"`
+	GasLimit         string        `json:"gasLimit"`
+	GasUsed          string        `json:"gasUsed"`
+	Miner            string        `json:"miner"`
+	Difficulty       string        `json:"difficulty"`
+	TotalDifficulty  string        `json:"totalDifficulty"`
+	Size             string        `json:"size"`
+	Nonce            string        `json:"nonce"`
+	ExtraData        string        `json:"extraData"`
+	BaseFeePerGas    string        `json:"baseFeePerGas"`
+	Sha3Uncles       string        `json:"sha3Uncles"`
+	LogsBloom        string        `json:"logsBloom"`
+	TransactionsRoot string        `json:"transactionsRoot"`
+	StateRoot        string        `json:"stateRoot"`
+	ReceiptsRoot     string        `json:"receiptsRoot"`
+	Uncles           []string      `json:"uncles"`
+	Transactions     []interface{} `json:"transactions"`
 }
 
 // MarshalJSON implements custom JSON marshaling for BlockNotification
@@ -146,6 +175,11 @@ func (b BlockNotification) MarshalJSON() ([]byte, error) {
 		{"nonce", b.Nonce},
 		{"extraData", b.ExtraData},
 		{"baseFeePerGas", b.BaseFeePerGas},
+		{"sha3Uncles", b.Sha3Uncles},
+		{"logsBloom", b.LogsBloom},
+		{"transactionsRoot", b.TransactionsRoot},
+		{"stateRoot", b.StateRoot},
+		{"receiptsRoot", b.ReceiptsRoot},
 		{"uncles", b.Uncles},
 		{"transactions", b.Transactions},
 	}
@@ -238,22 +272,42 @@ func (sm *SubscriptionManager) BroadcastNewBlock(chain string, blockNumber uint6
 				parentHash = "0x" + hex.EncodeToString(make([]byte, 32))
 			}
 
+			// Generate deterministic hashes for required fields
+			sha3Uncles := generateBlockHashForSubscription(blockNumber, chain, "sha3Uncles")
+			// logsBloom must be exactly 512 hex characters (256 bytes)
+			logsBloom := generateBlockHashForSubscription(blockNumber, chain, "logsBloom")
+			// Extend to 256 bytes by repeating the hash pattern
+			logsBloomBytes := make([]byte, 256)
+			hashBytes, _ := hex.DecodeString(logsBloom[2:]) // Remove "0x" prefix
+			for i := 0; i < 256; i++ {
+				logsBloomBytes[i] = hashBytes[i%32] // Repeat the 32-byte hash pattern
+			}
+			logsBloom = "0x" + hex.EncodeToString(logsBloomBytes)
+			transactionsRoot := generateBlockHashForSubscription(blockNumber, chain, "transactionsRoot")
+			stateRoot := generateBlockHashForSubscription(blockNumber, chain, "stateRoot")
+			receiptsRoot := generateBlockHashForSubscription(blockNumber, chain, "receiptsRoot")
+
 			// Create block notification
 			block := BlockNotification{
-				ParentHash:      parentHash,
-				Number:          fmt.Sprintf("0x%x", blockNumber),
-				Hash:            blockHash,
-				Timestamp:       fmt.Sprintf("0x%x", time.Now().Unix()),
-				GasLimit:        "0x" + hex.EncodeToString(make([]byte, 32)),
-				GasUsed:         "0x" + hex.EncodeToString(make([]byte, 32)),
-				Miner:           "0x" + hex.EncodeToString(make([]byte, 20)),
-				Difficulty:      "0x" + hex.EncodeToString(make([]byte, 32)),
-				TotalDifficulty: "0x" + hex.EncodeToString(make([]byte, 32)),
-				Size:            "0x" + hex.EncodeToString(make([]byte, 32)),
-				Nonce:           "0x" + hex.EncodeToString(make([]byte, 8)),
-				ExtraData:       "0x" + hex.EncodeToString(make([]byte, 32)),
-				BaseFeePerGas:   "0x" + hex.EncodeToString(make([]byte, 32)),
-				Uncles:          []string{},
+				ParentHash:       parentHash,
+				Number:           fmt.Sprintf("0x%x", blockNumber),
+				Hash:             blockHash,
+				Timestamp:        fmt.Sprintf("0x%x", time.Now().Unix()),
+				GasLimit:         generateValidHexString(32),
+				GasUsed:          generateValidHexString(32),
+				Miner:            "0x" + hex.EncodeToString(make([]byte, 20)),
+				Difficulty:       generateValidHexString(32),
+				TotalDifficulty:  generateValidHexString(32),
+				Size:             generateValidHexString(32),
+				Nonce:            "0x" + hex.EncodeToString(make([]byte, 8)),
+				ExtraData:        "0x" + hex.EncodeToString(make([]byte, 32)),
+				BaseFeePerGas:    generateValidHexString(32),
+				Sha3Uncles:       sha3Uncles,
+				LogsBloom:        logsBloom,
+				TransactionsRoot: transactionsRoot,
+				StateRoot:        stateRoot,
+				ReceiptsRoot:     receiptsRoot,
+				Uncles:           []string{},
 			}
 
 			// Add transactions if subscription type is newHeadsWithTx
