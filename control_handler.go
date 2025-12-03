@@ -79,8 +79,23 @@ func handleDropConnections(w http.ResponseWriter, r *http.Request) {
 		BlockDuration int `json:"block_duration_seconds"` // Duration in seconds to block new connections
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		// If no body provided or invalid, just drop connections without blocking
+	// Check if body is empty
+	bodyBytes, _ := io.ReadAll(r.Body)
+	r.Body.Close()
+
+	if len(bodyBytes) == 0 {
+		// No body provided, just drop connections without blocking
+		subManager.DropAllConnections()
+		jsonResponse(w, http.StatusOK, ControlResponse{
+			Success: true,
+			Message: "Dropped all connections",
+		})
+		return
+	}
+
+	// Parse JSON body
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		// Invalid JSON, just drop connections without blocking
 		subManager.DropAllConnections()
 		jsonResponse(w, http.StatusOK, ControlResponse{
 			Success: true,
@@ -92,9 +107,10 @@ func handleDropConnections(w http.ResponseWriter, r *http.Request) {
 	subManager.DropAllConnections()
 	if req.BlockDuration > 0 {
 		BlockConnections(time.Duration(req.BlockDuration) * time.Second)
+		log.Printf("Dropped all connections and blocking new connections for %d seconds", req.BlockDuration)
 		jsonResponse(w, http.StatusOK, ControlResponse{
 			Success: true,
-			Message: "Dropped all connections and blocked new connections for specified duration",
+			Message: fmt.Sprintf("Dropped all connections and blocked new connections for %d seconds", req.BlockDuration),
 		})
 	} else {
 		jsonResponse(w, http.StatusOK, ControlResponse{

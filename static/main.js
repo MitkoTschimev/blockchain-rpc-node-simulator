@@ -16,6 +16,7 @@ class RPCSimulator {
         document.getElementById('resumeBlockBtn').addEventListener('click', () => this.resumeBlock());
         document.getElementById('setIntervalBtn').addEventListener('click', () => this.setBlockInterval());
         document.getElementById('dropConnectionsBtn').addEventListener('click', () => this.dropConnections());
+        document.getElementById('dropConnectionsGlobalBtn').addEventListener('click', () => this.dropConnections());
 
         // New event listeners for chain disruptions
         document.getElementById('setTimeoutBtn').addEventListener('click', () => this.setTimeout());
@@ -277,13 +278,20 @@ class RPCSimulator {
     }
 
     async dropConnections() {
-        const duration = document.getElementById('blockDuration').value;
-        const data = duration ? { block_duration_seconds: parseInt(duration) } : {};
+        const durationInput = document.getElementById('blockDuration').value;
+        const duration = parseInt(durationInput);
+        const data = durationInput && !isNaN(duration) && duration > 0 
+            ? { block_duration_seconds: duration } 
+            : {};
         
         const response = await this.sendControlRequest('/control/connections/drop', data);
 
         if (response.ok) {
-            this.log('Dropped all connections' + (duration ? ` and blocked new connections for ${duration} seconds` : ''));
+            if (durationInput && !isNaN(duration) && duration > 0) {
+                this.log(`Dropped all connections and blocked new connections for ${duration} seconds`);
+            } else {
+                this.log('Dropped all connections');
+            }
             // If we have an active connection, disconnect it
             if (this.ws) {
                 this.disconnect();
